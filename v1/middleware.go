@@ -18,20 +18,27 @@ type Info struct {
 }
 
 func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
+	var doormans []*Doorman
+	for _, opt := range opts {
+		doormans = append(doormans, opt())
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			doormanInfo := &Info{}
 
-			for _, authn := range globalDoorman.loadedAuthenticators {
-				if info, err := authn.Evaluate(r); err == nil {
-					if info != nil {
-						doormanInfo.Infos = append(doormanInfo.Infos, info)
-						for _, group := range authn.GetGroups() {
-							doormanInfo.Groups[group] = struct{}{}
+			for _, doorman := range doormans {
+				for _, authn := range doorman.loadedAuthenticators {
+					if info, err := authn.Evaluate(r); err == nil {
+						if info != nil {
+							doormanInfo.Infos = append(doormanInfo.Infos, info)
+							for _, group := range authn.GetGroups() {
+								doormanInfo.Groups[group] = struct{}{}
+							}
 						}
+					} else {
+						logger.Error("middleware error", "error", err)
 					}
-				} else {
-					logger.Error("middleware error", "error", err)
 				}
 			}
 
@@ -42,7 +49,7 @@ func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
 					debugLogArgs = append(debugLogArgs, "type", info.GetType())
 					debugLogArgs = append(debugLogArgs, "value", fmt.Sprintf("%+v", info))
 				}
-				logger.Debug("EPP_DEBUG: authenticators", "infos", debugLogArgs)
+				logger.Debug("DOORMAN_DEBUG: authenticators", "infos", debugLogArgs)
 			}
 
 			ctx := context.WithValue(r.Context(), doormanCtxKey, doormanInfo)
@@ -59,7 +66,7 @@ func UseGlobalDoorman() *Doorman {
 	return globalDoorman
 }
 
-// InfoFromContext restores epp info from ctx
+// InfoFromContext restores doorman info from ctx
 func InfoFromContext(ctx context.Context) (i *Info, err error) {
 	var ok bool
 
