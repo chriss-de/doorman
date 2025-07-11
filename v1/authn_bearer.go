@@ -18,7 +18,7 @@ type bearerMetaData struct {
 
 type ValidationOperation struct {
 	Operation  string `json:"operation"`
-	Value      string `json:"value"`
+	Value      any    `json:"value"`
 	IsOptional bool   `json:"optional"`
 }
 
@@ -190,7 +190,7 @@ func (a *BearerAuthenticator) fetchMetaData() (err error) {
 		}(response.Body)
 	}
 	if response.StatusCode != 200 {
-		return fmt.Errorf(response.Status)
+		return fmt.Errorf("error: %s", response.Status)
 	}
 	if err = json.NewDecoder(response.Body).Decode(&metaData); err != nil {
 		return err
@@ -226,17 +226,14 @@ func (i *BearerAuthenticatorInfo) GetValueFromToken(key string) any {
 }
 
 func getFromTokenPayload(key string, t map[string]any) any {
-	sKey := strings.Split(key, ".")
-	for _, keyPart := range sKey {
-		v, exists := t[keyPart]
-		switch {
-		case exists && len(sKey) == 1:
+	sKey := strings.SplitN(key, ".", 2)
+	if v, exists := t[sKey[0]]; exists {
+		if len(sKey) > 1 {
+			if vv, ok := v.(map[string]any); ok {
+				return getFromTokenPayload(sKey[1], vv)
+			}
+		} else {
 			return v
-		case !exists:
-			return nil
-		default:
-			newKey, _ := strings.CutPrefix(key, keyPart+".")
-			return getFromTokenPayload(newKey, t)
 		}
 	}
 	return nil

@@ -1,6 +1,9 @@
 package doorman
 
 import (
+	"errors"
+	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -18,43 +21,95 @@ func RegisterBearerValidationOperation(n string, o func(*ValidationOperation, an
 	}
 }
 
+func castAsNumber(t any) (int64, error) {
+	switch v := t.(type) {
+	case float64:
+		return int64(v), nil
+	case float32:
+		return int64(v), nil
+	case int64:
+		return v, nil
+	case int32:
+		return int64(v), nil
+	case int:
+		return int64(v), nil
+	case int8:
+		return int64(v), nil
+	case int16:
+		return int64(v), nil
+	case string:
+		return strconv.ParseInt(v, 10, 64)
+	default:
+		return int64(0), fmt.Errorf("invalid type %T", t)
+	}
+}
+
+func castAsString(t any) (string, error) {
+	switch v := t.(type) {
+	case string:
+		return v, nil
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64), nil
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 32), nil
+	case int64:
+		return strconv.FormatInt(v, 10), nil
+	case int32:
+		return strconv.FormatInt(int64(v), 10), nil
+	case int:
+		return strconv.FormatInt(int64(v), 10), nil
+	case int8:
+		return strconv.FormatInt(int64(v), 10), nil
+	default:
+		return "", fmt.Errorf("invalid type %T", t)
+
+	}
+}
+
 func validationOperationLength(vo *ValidationOperation, tokenValue any) (bool, error) {
-	length, err := strconv.ParseInt(vo.Value, 10, 64)
+	int64Value, err := castAsNumber(vo.Value)
 	if err != nil {
-		return false, err
+		return false, errors.New("invalid type for length")
 	}
 
 	switch tv := tokenValue.(type) {
 	case string:
-		if len(tv) == int(length) {
-			return true, nil
-		}
-	case int, int8, int16, int32, int64, float32, float64:
-		if tv == length {
-			return true, nil
-		}
+		return len(tv) == int(int64Value), nil
+	case int:
+		return int64(tv) == int64Value, nil
+	case int8:
+		return int64(tv) == int64Value, nil
+	case int16:
+		return int64(tv) == int64Value, nil
+	case int32:
+		return int64(tv) == int64Value, nil
+	case int64:
+		return tv == int64Value, nil
+	case float32:
+		return int64(tv) == int64Value, nil
+	case float64:
+		return int64(tv) == int64Value, nil
 	case []any:
-		if len(tv) == int(length) {
-			return true, nil
-		}
+		return len(tv) == int(int64Value), nil
+	case map[string]any:
+		return len(tv) == int(int64Value), nil
+	default:
+		return false, fmt.Errorf("invalid type %T", tv)
 	}
-	return false, nil
 }
 
 func validationOperationIsType(vo *ValidationOperation, tokenValue any) (bool, error) {
 	switch tokenValue.(type) {
 	case string:
-		if vo.Value == "string" {
-			return true, nil
-		}
+		return vo.Value == "string", nil
 	case int, int8, int16, int32, int64, float32, float64:
-		if vo.Value == "number" {
-			return true, nil
-		}
+		return vo.Value == "number", nil
 	case []any:
-		if vo.Value == "list" {
-			return true, nil
-		}
+		return vo.Value == "list", nil
+	case map[string]any:
+		return vo.Value == "map", nil
+	case bool:
+		return vo.Value == "bool", nil
 	}
 	return false, nil
 }
@@ -62,13 +117,23 @@ func validationOperationIsType(vo *ValidationOperation, tokenValue any) (bool, e
 func validationOperationContains(vo *ValidationOperation, tokenValue any) (bool, error) {
 	switch tv := tokenValue.(type) {
 	case string:
-		if strings.Contains(tv, vo.Value) {
+		strValue, err := castAsString(vo.Value)
+		if err != nil {
+			return false, err
+		}
+		if strings.Contains(tv, strValue) {
 			return true, nil
 		}
-		//case []any:
-		//	if slices.Contains(tv, vo.Value) {
-		//		return true, nil
-		//	}
+	case int, int8, int16, int32, int64, float32, float64:
+		if vo.Value == tokenValue {
+			return true, nil
+		}
+	case []any:
+		if slices.Contains(tv, vo.Value) {
+			return true, nil
+		}
+		//case map[string]any:
+
 	}
 	return false, nil
 }
@@ -76,13 +141,19 @@ func validationOperationContains(vo *ValidationOperation, tokenValue any) (bool,
 func validationOperationEqual(vo *ValidationOperation, tokenValue any) (bool, error) {
 	switch tv := tokenValue.(type) {
 	case string:
-		if strings.Compare(tv, vo.Value) == 0 {
+		strValue, ok := vo.Value.(string)
+		if !ok {
+			return false, errors.New("invalid type for contains")
+		}
+		if strings.Compare(tv, strValue) == 0 {
 			return true, nil
 		}
 	case int, int8, int16, int32, int64, float32, float64:
 		if tv == vo.Value {
 			return true, nil
 		}
+	case bool:
+		return tv == vo.Value, nil
 	}
 	return false, nil
 }

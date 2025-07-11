@@ -96,7 +96,7 @@ func (bkm *BearerKeyManager) fetchKeys() (err error) {
 		}(response.Body)
 	}
 	if response.StatusCode != 200 {
-		return fmt.Errorf(response.Status)
+		return fmt.Errorf("error: %s", response.Status)
 	}
 
 	var newKeys *JwksUrlResponse
