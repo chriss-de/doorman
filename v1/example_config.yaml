@@ -2,7 +2,7 @@
 
 - name: basic             # protector name - used in endpoint config block
   type: basic
-  groups:
+  acls:
     - read:app
   credentials:
     - username: user1     # username
@@ -11,7 +11,7 @@
 
 - name: apikey            # protector name - used in endpoint config block
   type: http_header
-  groups:
+  acls:
     - whatever
   headers:
     - name: x-apikey      # http header name to use
@@ -20,7 +20,7 @@
 
 - name: ip
   type: ipaddress
-  groups:
+  acls:
     - authed_by_network
   addresses:
     - 12.34.56.78/8

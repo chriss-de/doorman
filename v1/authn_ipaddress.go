@@ -12,7 +12,7 @@ import (
 type IPAddressAuthenticator struct {
 	Name      string   `mapstructure:"name"`
 	Type      string   `mapstructure:"type"`
-	Groups    []string `mapstructure:"groups"`
+	ACLs      []string `mapstructure:"acls"`
 	Addresses []string `mapstructure:"addresses"`
 	addresses []*net.IPNet
 }
@@ -32,7 +32,7 @@ func NewIPAddressAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 	}
 	ipAddressAuthenticator.Name = cfg.Name
 	ipAddressAuthenticator.Type = "ipaddress"
-	ipAddressAuthenticator.Groups = cfg.Groups
+	ipAddressAuthenticator.ACLs = cfg.ACLs
 
 	for _, addr := range ipAddressAuthenticator.Addresses {
 		if _, netAddr, aErr := net.ParseCIDR(addr); aErr != nil {
@@ -45,9 +45,9 @@ func NewIPAddressAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 	return ipAddressAuthenticator, err
 }
 
-func (a *IPAddressAuthenticator) GetName() string     { return a.Name }
-func (a *IPAddressAuthenticator) GetType() string     { return a.Type }
-func (a *IPAddressAuthenticator) GetGroups() []string { return a.Groups }
+func (a *IPAddressAuthenticator) GetName() string   { return a.Name }
+func (a *IPAddressAuthenticator) GetType() string   { return a.Type }
+func (a *IPAddressAuthenticator) GetACLs() []string { return a.ACLs }
 
 func (a *IPAddressAuthenticator) Evaluate(r *http.Request) (pi AuthenticatorInfo, err error) {
 	remoteAddr := r.RemoteAddr

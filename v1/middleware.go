@@ -13,8 +13,8 @@ type contextKey struct {
 var doormanCtxKey = &contextKey{"doorman"}
 
 type Info struct {
-	Infos  []AuthenticatorInfo
-	Groups map[string]struct{}
+	Infos []AuthenticatorInfo
+	ACLs  map[string]struct{}
 }
 
 func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
@@ -25,15 +25,15 @@ func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			doormanInfo := &Info{Groups: make(map[string]struct{})}
+			doormanInfo := &Info{ACLs: make(map[string]struct{})}
 
 			for _, doorman := range doormans {
 				for _, authn := range doorman.loadedAuthenticators {
 					if info, err := authn.Evaluate(r); err == nil {
 						if info != nil {
 							doormanInfo.Infos = append(doormanInfo.Infos, info)
-							for _, group := range authn.GetGroups() {
-								doormanInfo.Groups[group] = struct{}{}
+							for _, group := range authn.GetACLs() {
+								doormanInfo.ACLs[group] = struct{}{}
 							}
 						}
 					} else {

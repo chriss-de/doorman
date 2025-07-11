@@ -32,7 +32,7 @@ type TokenAccessor map[string]string
 type BearerAuthenticator struct {
 	Name              string            `mapstructure:"name"`
 	Type              string            `mapstructure:"type"`
-	Groups            []string          `mapstructure:"groups"`
+	ACLs              []string          `mapstructure:"acls"`
 	MetaUrl           string            `mapstructure:"meta_url"`
 	JwksUrl           string            `mapstructure:"jwks_url"`
 	KeysFetchInterval time.Duration     `mapstructure:"keys_fetch_interval"`
@@ -68,7 +68,7 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 
 	bearerAuthenticator.Name = cfg.Name
 	bearerAuthenticator.Type = "bearer"
-	bearerAuthenticator.Groups = cfg.Groups
+	bearerAuthenticator.ACLs = cfg.ACLs
 	bearerAuthenticator.httpClient = &http.Client{}
 
 	// sanity check
@@ -108,9 +108,9 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 	return bearerAuthenticator, nil
 }
 
-func (a *BearerAuthenticator) GetName() string     { return a.Name }
-func (a *BearerAuthenticator) GetType() string     { return a.Type }
-func (a *BearerAuthenticator) GetGroups() []string { return a.Groups }
+func (a *BearerAuthenticator) GetName() string   { return a.Name }
+func (a *BearerAuthenticator) GetType() string   { return a.Type }
+func (a *BearerAuthenticator) GetACLs() []string { return a.ACLs }
 
 func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	var (

@@ -22,7 +22,7 @@ type HttpHeaderAuthenticatorInfo struct {
 type HttpHeaderAuthenticator struct {
 	Name       string       `mapstructure:"name"`
 	Type       string       `mapstructure:"type"`
-	Groups     []string     `mapstructure:"groups"`
+	ACLs       []string     `mapstructure:"acls"`
 	Headers    []HttpHeader `mapstructure:"headers"`
 	headersMap map[string]int
 }
@@ -36,7 +36,7 @@ func NewHttpHeaderAuthenticator(cfg *AuthenticatorConfig) (authenticator Authent
 	}
 	httpHeaderAuthenticator.Name = cfg.Name
 	httpHeaderAuthenticator.Type = "http_header"
-	httpHeaderAuthenticator.Groups = cfg.Groups
+	httpHeaderAuthenticator.ACLs = cfg.ACLs
 	httpHeaderAuthenticator.headersMap = make(map[string]int)
 
 	for idx, header := range httpHeaderAuthenticator.Headers {
@@ -52,9 +52,9 @@ func NewHttpHeaderAuthenticator(cfg *AuthenticatorConfig) (authenticator Authent
 	return httpHeaderAuthenticator, err
 }
 
-func (a *HttpHeaderAuthenticator) GetName() string     { return a.Name }
-func (a *HttpHeaderAuthenticator) GetType() string     { return a.Type }
-func (a *HttpHeaderAuthenticator) GetGroups() []string { return a.Groups }
+func (a *HttpHeaderAuthenticator) GetName() string   { return a.Name }
+func (a *HttpHeaderAuthenticator) GetType() string   { return a.Type }
+func (a *HttpHeaderAuthenticator) GetACLs() []string { return a.ACLs }
 
 func (a *HttpHeaderAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	for headerName, idx := range a.headersMap {

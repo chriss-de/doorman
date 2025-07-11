@@ -24,7 +24,7 @@ type BasicAuthAuthenticatorInfo struct {
 type BasicAuthAuthenticator struct {
 	Name          string                `mapstructure:"name"`
 	Type          string                `mapstructure:"type"`
-	Groups        []string              `mapstructure:"groups"`
+	ACLs          []string              `mapstructure:"acls"`
 	Credentials   []BasicAuthCredential `mapstructure:"credentials"`
 	credentialMap map[string]int
 }
@@ -37,7 +37,7 @@ func NewBasicAuthAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 	}
 	basicAuthAuthenticator.Name = cfg.Name
 	basicAuthAuthenticator.Type = "basic"
-	basicAuthAuthenticator.Groups = cfg.Groups
+	basicAuthAuthenticator.ACLs = cfg.ACLs
 	basicAuthAuthenticator.credentialMap = make(map[string]int)
 
 	for credIdx, cred := range basicAuthAuthenticator.Credentials {
@@ -54,9 +54,9 @@ func NewBasicAuthAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 }
 
 // GetName returns protector name
-func (a *BasicAuthAuthenticator) GetName() string     { return a.Name }
-func (a *BasicAuthAuthenticator) GetType() string     { return a.Type }
-func (a *BasicAuthAuthenticator) GetGroups() []string { return a.Groups }
+func (a *BasicAuthAuthenticator) GetName() string   { return a.Name }
+func (a *BasicAuthAuthenticator) GetType() string   { return a.Type }
+func (a *BasicAuthAuthenticator) GetACLs() []string { return a.ACLs }
 func (a *BasicAuthAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	authHeaderValue := r.Header.Get("Authorization")
 	if basicValue, found := strings.CutPrefix(authHeaderValue, "Basic "); found {
