@@ -17,7 +17,7 @@ type Info struct {
 	ACLs  map[string]struct{}
 }
 
-func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
+func Middleware(opts ...MiddlewareFunc) func(http.Handler) http.Handler {
 	var doormans []*Doorman
 	for _, opt := range opts {
 		doormans = append(doormans, opt())

@@ -7,9 +7,13 @@ import (
 	"fmt"
 )
 
-func WithHashAlgorithm(name string, f func(string) string) func(dm *Doorman) {
-	return func(dm *Doorman) {
+func WithHashAlgorithm(name string, f HasherFunc) func(dm *Doorman) error {
+	return func(dm *Doorman) error {
+		if name == "" || f == nil {
+			return fmt.Errorf("hash algorithm must not be empty")
+		}
 		hashers[name] = f
+		return nil
 	}
 }
 

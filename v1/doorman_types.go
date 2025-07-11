@@ -11,6 +11,6 @@ type Doorman struct {
 	debugLog                 bool
 	configuredAuthenticators []*AuthenticatorConfig
 	loadedAuthenticators     []Authenticator
-	registeredAuthenticators map[string]func(*AuthenticatorConfig) (Authenticator, error)
+	registeredAuthenticators map[string]RegisterAuthenticatorFunc
 	authenticatorsIdMap      map[string]int
 }

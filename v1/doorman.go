@@ -6,8 +6,8 @@ import (
 
 var (
 	globalDoorman *Doorman
-	logger        Logger                         = &NullLogger{}
-	hashers       map[string]func(string) string = map[string]func(string) string{
+	logger        Logger                = &NullLogger{}
+	hashers       map[string]HasherFunc = map[string]HasherFunc{
 		"plain":  stringHashPlain,
 		"md5":    stringHashMd5,
 		"sha1":   stringHashSha1,
@@ -16,9 +16,9 @@ var (
 )
 
 // NewDoorman init
-func NewDoorman(opts ...func(dm *Doorman)) (dm *Doorman, err error) {
+func NewDoorman(opts ...NewFunc) (dm *Doorman, err error) {
 	dm = &Doorman{
-		registeredAuthenticators: make(map[string]func(*AuthenticatorConfig) (Authenticator, error)),
+		registeredAuthenticators: make(map[string]RegisterAuthenticatorFunc),
 		configuredAuthenticators: make([]*AuthenticatorConfig, 0),
 	}
 
@@ -29,7 +29,9 @@ func NewDoorman(opts ...func(dm *Doorman)) (dm *Doorman, err error) {
 	dm.registeredAuthenticators["bearer"] = NewBearerAuthenticator
 
 	for _, opt := range opts {
-		opt(dm)
+		if err = opt(dm); err != nil {
+			return nil, err
+		}
 	}
 
 	if err = dm.loadAuthenticators(); err != nil {
@@ -67,20 +69,26 @@ func (dm *Doorman) loadAuthenticators() (err error) {
 	return nil
 }
 
-func WithAuthenticatorConfigs(configs []*AuthenticatorConfig) func(dm *Doorman) {
-	return func(dm *Doorman) {
+func WithAuthenticatorConfigs(configs []*AuthenticatorConfig) func(dm *Doorman) error {
+	return func(dm *Doorman) error {
 		dm.configuredAuthenticators = configs
+		return nil
 	}
 }
 
-func RegisterNewAuthenticator(name string, initFunc func(*AuthenticatorConfig) (Authenticator, error)) func(dm *Doorman) {
-	return func(dm *Doorman) {
+func RegisterNewAuthenticator(name string, initFunc func(*AuthenticatorConfig) (Authenticator, error)) func(dm *Doorman) error {
+	return func(dm *Doorman) error {
 		dm.registeredAuthenticators[name] = initFunc
+		return nil
 	}
 }
 
-func AsGlobalDefault() func(dm *Doorman) {
-	return func(dm *Doorman) {
+func AsGlobalDefault(force bool) func(dm *Doorman) error {
+	return func(dm *Doorman) error {
+		if globalDoorman != nil && !force {
+			return fmt.Errorf("global doorman already set")
+		}
 		globalDoorman = dm
+		return nil
 	}
 }
