@@ -108,11 +108,11 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 	return bearerAuthenticator, nil
 }
 
-func (p *BearerAuthenticator) GetName() string     { return p.Name }
-func (p *BearerAuthenticator) GetType() string     { return p.Type }
-func (p *BearerAuthenticator) GetGroups() []string { return p.Groups }
+func (a *BearerAuthenticator) GetName() string     { return a.Name }
+func (a *BearerAuthenticator) GetType() string     { return a.Type }
+func (a *BearerAuthenticator) GetGroups() []string { return a.Groups }
 
-func (p *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
+func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	var (
 		token       *jwt.Token
 		tokenClaims = make(jwt.MapClaims)
@@ -123,26 +123,26 @@ func (p *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 	if bearerValue, found := strings.CutPrefix(authHeaderValue, "Bearer "); found {
 		// we dont fetch the error since it could be a token for another configuration
 		// we check if the token is valid later
-		token, _ = jwt.ParseWithClaims(bearerValue, &tokenClaims, p.bearerKeysManager.getSignatureKey)
+		token, _ = jwt.ParseWithClaims(bearerValue, &tokenClaims, a.bearerKeysManager.getSignatureKey)
 		if token == nil {
 			return nil, fmt.Errorf("no token")
 		}
 		if !token.Valid {
 			return nil, fmt.Errorf("invalid bearer token")
 		}
-		if err = p.validateClaims(tokenClaims); err != nil {
+		if err = a.validateClaims(tokenClaims); err != nil {
 			return nil, err
 		}
 
-		bpi := &BearerAuthenticatorInfo{Authenticator: p, TokenClaims: tokenClaims, Token: token}
+		bpi := &BearerAuthenticatorInfo{Authenticator: a, TokenClaims: tokenClaims, Token: token}
 		return bpi, nil
 
 	}
 	return nil, nil
 }
 
-func (p *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
-	for _, cv := range p.ClaimsValidations {
+func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
+	for _, cv := range a.ClaimsValidations {
 		v := getFromTokenPayload(cv.Key, tokenClaims)
 		if v != nil {
 			switch typedValue := v.(type) {
@@ -185,17 +185,17 @@ func (p *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
 }
 
 // fetchMetaData fetches all values for IDP from metadata url
-func (p *BearerAuthenticator) fetchMetaData() (err error) {
+func (a *BearerAuthenticator) fetchMetaData() (err error) {
 	var (
 		request  *http.Request
 		response *http.Response
 		metaData bearerMetaData
 	)
 
-	if request, err = http.NewRequest("GET", p.MetaUrl, nil); err != nil {
+	if request, err = http.NewRequest("GET", a.MetaUrl, nil); err != nil {
 		return err
 	}
-	if response, err = p.httpClient.Do(request); err != nil {
+	if response, err = a.httpClient.Do(request); err != nil {
 		return err
 	}
 	if response.Body != nil {
@@ -210,33 +210,33 @@ func (p *BearerAuthenticator) fetchMetaData() (err error) {
 		return err
 	}
 
-	p.JwksUrl = metaData.JwksUri
+	a.JwksUrl = metaData.JwksUri
 
 	return nil
 }
 
-func (b *BearerAuthenticatorInfo) mapKey(key string) string {
+func (i *BearerAuthenticatorInfo) mapKey(key string) string {
 	keyResult := key
 
-	if len(b.Authenticator.TokenAccessor) > 0 {
-		if _, f := b.Authenticator.TokenAccessor[key]; f {
-			keyResult = b.Authenticator.TokenAccessor[key]
+	if len(i.Authenticator.TokenAccessor) > 0 {
+		if _, f := i.Authenticator.TokenAccessor[key]; f {
+			keyResult = i.Authenticator.TokenAccessor[key]
 		}
 	}
 
 	return keyResult
 }
 
-func (b *BearerAuthenticatorInfo) GetStringFromToken(key string) string {
-	v := getFromTokenPayload(b.mapKey(key), b.TokenClaims)
+func (i *BearerAuthenticatorInfo) GetStringFromToken(key string) string {
+	v := getFromTokenPayload(i.mapKey(key), i.TokenClaims)
 	if vs, ok := v.(string); ok {
 		return vs
 	}
 	return ""
 }
 
-func (b *BearerAuthenticatorInfo) GetValueFromToken(key string) any {
-	return getFromTokenPayload(b.mapKey(key), b.TokenClaims)
+func (i *BearerAuthenticatorInfo) GetValueFromToken(key string) any {
+	return getFromTokenPayload(i.mapKey(key), i.TokenClaims)
 }
 
 func getFromTokenPayload(key string, t map[string]any) any {
@@ -260,10 +260,10 @@ func errorMessage(key string, msg string) error {
 	return fmt.Errorf("invalid claim for '%s' - %s", key, msg)
 }
 
-func (b *BearerAuthenticatorInfo) GetName() string {
-	return b.Authenticator.GetName()
+func (i *BearerAuthenticatorInfo) GetName() string {
+	return i.Authenticator.GetName()
 }
 
-func (b *BearerAuthenticatorInfo) GetType() string {
-	return b.Authenticator.GetType()
+func (i *BearerAuthenticatorInfo) GetType() string {
+	return i.Authenticator.GetType()
 }

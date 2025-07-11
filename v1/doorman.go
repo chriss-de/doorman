@@ -8,6 +8,7 @@ var (
 	globalDoorman *Doorman
 	logger        Logger                         = &NullLogger{}
 	hashers       map[string]func(string) string = map[string]func(string) string{
+		"plain":  stringHashPlain,
 		"md5":    stringHashMd5,
 		"sha1":   stringHashSha1,
 		"sha256": stringHashSha256,

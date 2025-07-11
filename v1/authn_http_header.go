@@ -15,9 +15,8 @@ type HttpHeader struct {
 }
 
 type HttpHeaderAuthenticatorInfo struct {
-	Authenticator    *HttpHeaderAuthenticator
-	ApiKeyValue      string
-	PopulatedHeaders map[string]string
+	Authenticator *HttpHeaderAuthenticator
+	ApiKeyValue   string
 }
 
 type HttpHeaderAuthenticator struct {
@@ -53,20 +52,20 @@ func NewHttpHeaderAuthenticator(cfg *AuthenticatorConfig) (authenticator Authent
 	return httpHeaderAuthenticator, err
 }
 
-func (p *HttpHeaderAuthenticator) GetName() string     { return p.Name }
-func (p *HttpHeaderAuthenticator) GetType() string     { return p.Type }
-func (p *HttpHeaderAuthenticator) GetGroups() []string { return p.Groups }
+func (a *HttpHeaderAuthenticator) GetName() string     { return a.Name }
+func (a *HttpHeaderAuthenticator) GetType() string     { return a.Type }
+func (a *HttpHeaderAuthenticator) GetGroups() []string { return a.Groups }
 
-func (p *HttpHeaderAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
-	for headerName, idx := range p.headersMap {
+func (a *HttpHeaderAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
+	for headerName, idx := range a.headersMap {
 		headerValue := r.Header.Get(headerName)
 		if headerValue != "" {
-			httpHeader := p.Headers[idx]
+			httpHeader := a.Headers[idx]
 			if httpHeader.hasher != nil {
 				headerValue = httpHeader.hasher(headerValue)
 			}
 			if headerValue == httpHeader.Value {
-				akpi := &HttpHeaderAuthenticatorInfo{Authenticator: p, PopulatedHeaders: make(map[string]string), ApiKeyValue: headerValue}
+				akpi := &HttpHeaderAuthenticatorInfo{Authenticator: a, ApiKeyValue: headerValue}
 				return akpi, nil
 			}
 		}

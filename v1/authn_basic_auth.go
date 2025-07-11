@@ -17,8 +17,8 @@ type BasicAuthCredential struct {
 }
 
 type BasicAuthAuthenticatorInfo struct {
-	protector *BasicAuthAuthenticator
-	Username  string
+	Authenticator *BasicAuthAuthenticator
+	Username      string
 }
 
 type BasicAuthAuthenticator struct {
@@ -54,10 +54,10 @@ func NewBasicAuthAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 }
 
 // GetName returns protector name
-func (p *BasicAuthAuthenticator) GetName() string     { return p.Name }
-func (p *BasicAuthAuthenticator) GetType() string     { return p.Type }
-func (p *BasicAuthAuthenticator) GetGroups() []string { return p.Groups }
-func (p *BasicAuthAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
+func (a *BasicAuthAuthenticator) GetName() string     { return a.Name }
+func (a *BasicAuthAuthenticator) GetType() string     { return a.Type }
+func (a *BasicAuthAuthenticator) GetGroups() []string { return a.Groups }
+func (a *BasicAuthAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	authHeaderValue := r.Header.Get("Authorization")
 	if basicValue, found := strings.CutPrefix(authHeaderValue, "Basic "); found {
 		// decode from base64
@@ -72,15 +72,15 @@ func (p *BasicAuthAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, e
 
 		//
 		username, password := creds[0], creds[1]
-		if credIdx, found := p.credentialMap[username]; found {
-			cred := p.Credentials[credIdx]
+		if credIdx, found := a.credentialMap[username]; found {
+			cred := a.Credentials[credIdx]
 
 			if cred.hasher != nil {
 				password = cred.hasher(password)
 			}
 
 			if password == cred.Password {
-				bapi := &BasicAuthAuthenticatorInfo{protector: p, Username: username}
+				bapi := &BasicAuthAuthenticatorInfo{Authenticator: a, Username: username}
 
 				return bapi, nil
 			}
@@ -90,5 +90,5 @@ func (p *BasicAuthAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, e
 	return nil, nil
 }
 
-func (b BasicAuthAuthenticatorInfo) GetName() string { return b.protector.GetName() }
-func (b BasicAuthAuthenticatorInfo) GetType() string { return b.protector.GetType() }
+func (i BasicAuthAuthenticatorInfo) GetName() string { return i.Authenticator.GetName() }
+func (i BasicAuthAuthenticatorInfo) GetType() string { return i.Authenticator.GetType() }

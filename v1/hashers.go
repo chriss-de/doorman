@@ -13,6 +13,10 @@ func WithHashAlgorithm(name string, f func(string) string) func(dm *Doorman) {
 	}
 }
 
+func stringHashPlain(s string) string {
+	return s
+}
+
 func stringHashSha256(s string) string {
 	h := sha256.New()
 	h.Write([]byte(s))

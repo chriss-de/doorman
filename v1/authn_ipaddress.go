@@ -45,11 +45,11 @@ func NewIPAddressAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 	return ipAddressAuthenticator, err
 }
 
-func (p *IPAddressAuthenticator) GetName() string     { return p.Name }
-func (p *IPAddressAuthenticator) GetType() string     { return p.Type }
-func (p *IPAddressAuthenticator) GetGroups() []string { return p.Groups }
+func (a *IPAddressAuthenticator) GetName() string     { return a.Name }
+func (a *IPAddressAuthenticator) GetType() string     { return a.Type }
+func (a *IPAddressAuthenticator) GetGroups() []string { return a.Groups }
 
-func (p *IPAddressAuthenticator) Evaluate(r *http.Request) (pi AuthenticatorInfo, err error) {
+func (a *IPAddressAuthenticator) Evaluate(r *http.Request) (pi AuthenticatorInfo, err error) {
 	remoteAddr := r.RemoteAddr
 	if strings.Contains(remoteAddr, ":") {
 		if remoteAddr, _, err = net.SplitHostPort(r.RemoteAddr); err != nil {
@@ -61,9 +61,9 @@ func (p *IPAddressAuthenticator) Evaluate(r *http.Request) (pi AuthenticatorInfo
 		return nil, fmt.Errorf("clientIp is invalid")
 	}
 
-	for _, addr := range p.addresses {
+	for _, addr := range a.addresses {
 		if addr.Contains(clientIp) {
-			iapi := &IPAddressAuthenticatorInfo{Authenticator: p, ClientIP: clientIp, MatchedAddress: addr}
+			iapi := &IPAddressAuthenticatorInfo{Authenticator: a, ClientIP: clientIp, MatchedAddress: addr}
 			return iapi, nil
 		}
 	}
