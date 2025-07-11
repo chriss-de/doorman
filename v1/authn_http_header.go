@@ -41,9 +41,11 @@ func NewHttpHeaderAuthenticator(cfg *AuthenticatorConfig) (authenticator Authent
 	httpHeaderAuthenticator.headersMap = make(map[string]int)
 
 	for idx, header := range httpHeaderAuthenticator.Headers {
-		var valid bool
-		if httpHeaderAuthenticator.Headers[idx].hasher, valid = hashers[header.Hashed]; !valid {
-			return nil, fmt.Errorf("invalid hash algorithm: %s", header.Hashed)
+		if header.Hashed != "" {
+			var valid bool
+			if httpHeaderAuthenticator.Headers[idx].hasher, valid = hashers[header.Hashed]; !valid {
+				return nil, fmt.Errorf("invalid hash algorithm: %s", header.Hashed)
+			}
 		}
 		httpHeaderAuthenticator.headersMap[header.Name] = idx
 	}

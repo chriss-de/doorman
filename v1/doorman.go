@@ -6,8 +6,12 @@ import (
 
 var (
 	globalDoorman *Doorman
-	hashers       map[string]func(string) string
-	logger        Logger = &NullLogger{}
+	logger        Logger                         = &NullLogger{}
+	hashers       map[string]func(string) string = map[string]func(string) string{
+		"md5":    stringHashMd5,
+		"sha1":   stringHashSha1,
+		"sha256": stringHashSha256,
+	}
 )
 
 // NewDoorman init

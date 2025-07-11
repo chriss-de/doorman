@@ -41,9 +41,11 @@ func NewBasicAuthAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenti
 	basicAuthAuthenticator.credentialMap = make(map[string]int)
 
 	for credIdx, cred := range basicAuthAuthenticator.Credentials {
-		var valid bool
-		if basicAuthAuthenticator.Credentials[credIdx].hasher, valid = hashers[cred.Hashed]; !valid {
-			return nil, fmt.Errorf("invalid hash algorithm: %s", cred.Hashed)
+		if cred.Hashed != "" {
+			var valid bool
+			if basicAuthAuthenticator.Credentials[credIdx].hasher, valid = hashers[cred.Hashed]; !valid {
+				return nil, fmt.Errorf("invalid hash algorithm: %s", cred.Hashed)
+			}
 		}
 		basicAuthAuthenticator.credentialMap[cred.Username] = credIdx
 	}
