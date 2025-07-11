@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/mitchellh/mapstructure"
 )
 
 type bearerMetaData struct {
