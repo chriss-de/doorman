@@ -6,9 +6,10 @@ import (
 )
 
 var claimValidationOperations = map[string]func(*ValidationOperation, any) (bool, error){
-	"len":      validationOperationLen,
+	"length":   validationOperationLength,
 	"type":     validationOperationIsType,
 	"contains": validationOperationContains,
+	"equal":    validationOperationEqual,
 }
 
 func RegisterBearerValidationOperation(n string, o func(*ValidationOperation, any) (bool, error)) func(dm *Doorman) {
@@ -17,7 +18,7 @@ func RegisterBearerValidationOperation(n string, o func(*ValidationOperation, an
 	}
 }
 
-func validationOperationLen(vo *ValidationOperation, tokenValue any) (bool, error) {
+func validationOperationLength(vo *ValidationOperation, tokenValue any) (bool, error) {
 	length, err := strconv.ParseInt(vo.Value, 10, 64)
 	if err != nil {
 		return false, err
@@ -68,6 +69,20 @@ func validationOperationContains(vo *ValidationOperation, tokenValue any) (bool,
 		//	if slices.Contains(tv, vo.Value) {
 		//		return true, nil
 		//	}
+	}
+	return false, nil
+}
+
+func validationOperationEqual(vo *ValidationOperation, tokenValue any) (bool, error) {
+	switch tv := tokenValue.(type) {
+	case string:
+		if strings.Compare(tv, vo.Value) == 0 {
+			return true, nil
+		}
+	case int, int8, int16, int32, int64, float32, float64:
+		if tv == vo.Value {
+			return true, nil
+		}
 	}
 	return false, nil
 }

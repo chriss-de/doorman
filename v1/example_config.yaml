@@ -38,8 +38,8 @@
 
 #  claims_validations:
 #  - key: a.s.d
-#    validation:
-#    - operation: is_number | is_string | contains | len
-#      value: 123 | abc | 3     
+#    validations:
+#    - operation: length | type | equal | contains
+#      value: 123 | abc | 3
 #    dynamic_acls:
 #    - acl_added_to_acls
