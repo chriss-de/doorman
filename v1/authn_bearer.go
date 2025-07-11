@@ -152,10 +152,10 @@ func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
 						return err
 					}
 					if !result {
-						return fmt.Errorf("invalid length")
+						return fmt.Errorf("error: %s failed for %v with %s", validation.Operation, v, validation.Value)
 					}
 				} else {
-					return fmt.Errorf("invalid validation")
+					return fmt.Errorf("invalid validation: %s", validation.Operation)
 				}
 			}
 			if len(cv.DynamicACLS) > 0 {
