@@ -18,7 +18,6 @@ var (
 // NewDoorman init
 func NewDoorman(opts ...func(dm *Doorman)) (dm *Doorman, err error) {
 	dm = &Doorman{
-		debugLog:                 false,
 		registeredAuthenticators: make(map[string]func(*AuthenticatorConfig) (Authenticator, error)),
 		configuredAuthenticators: make([]*AuthenticatorConfig, 0),
 	}
@@ -83,11 +82,5 @@ func RegisterNewAuthenticator(name string, initFunc func(*AuthenticatorConfig) (
 func AsGlobalDefault() func(dm *Doorman) {
 	return func(dm *Doorman) {
 		globalDoorman = dm
-	}
-}
-
-func WithDebugLog() func(dm *Doorman) {
-	return func(dm *Doorman) {
-		dm.debugLog = true
 	}
 }

@@ -42,15 +42,13 @@ func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
 				}
 			}
 
-			if globalDoorman.debugLog {
-				var debugLogArgs []any
-				for _, info := range doormanInfo.Infos {
-					debugLogArgs = append(debugLogArgs, "name", info.GetName())
-					debugLogArgs = append(debugLogArgs, "type", info.GetType())
-					debugLogArgs = append(debugLogArgs, "value", fmt.Sprintf("%+v", info))
-				}
-				logger.Debug("DOORMAN_DEBUG: authenticators", "infos", debugLogArgs)
+			var debugLogArgs []any
+			for _, info := range doormanInfo.Infos {
+				debugLogArgs = append(debugLogArgs, "name", info.GetName())
+				debugLogArgs = append(debugLogArgs, "type", info.GetType())
+				debugLogArgs = append(debugLogArgs, "value", fmt.Sprintf("%+v", info))
 			}
+			logger.Debug("DOORMAN_DEBUG: authenticators", "infos", debugLogArgs)
 
 			ctx := context.WithValue(r.Context(), doormanCtxKey, doormanInfo)
 			next.ServeHTTP(w, r.WithContext(ctx))
