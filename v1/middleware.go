@@ -25,7 +25,7 @@ func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			doormanInfo := &Info{}
+			doormanInfo := &Info{Groups: make(map[string]struct{})}
 
 			for _, doorman := range doormans {
 				for _, authn := range doorman.loadedAuthenticators {
