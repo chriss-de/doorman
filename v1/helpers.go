@@ -8,6 +8,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+func MustHasACL(ctx context.Context, acl string) bool {
+	result, err := HasACL(ctx, acl)
+	return err == nil && result
+}
+
 func HasACL(ctx context.Context, acl string) (bool, error) {
 	i, err := InfoFromContext(ctx)
 	if err != nil {
@@ -18,6 +23,11 @@ func HasACL(ctx context.Context, acl string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func MustHasACLs(ctx context.Context, acls []string) bool {
+	result, err := HasACLs(ctx, acls)
+	return err == nil && result
 }
 
 func HasACLs(ctx context.Context, acls []string) (bool, error) {
@@ -37,7 +47,7 @@ func HasACLs(ctx context.Context, acls []string) (bool, error) {
 func NeedACL(acl string, func401 func(http.ResponseWriter, *http.Request)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			if hasACL, err := HasACL(r.Context(), acl); err == nil && hasACL {
+			if MustHasACL(r.Context(), acl) {
 				next.ServeHTTP(rw, r.WithContext(r.Context()))
 			} else {
 				func401(rw, r)
@@ -49,7 +59,7 @@ func NeedACL(acl string, func401 func(http.ResponseWriter, *http.Request)) func(
 func NeedACLs(acls []string, func401 func(http.ResponseWriter, *http.Request)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			if hasACLs, err := HasACLs(r.Context(), acls); err == nil && hasACLs {
+			if MustHasACLs(r.Context(), acls) {
 				next.ServeHTTP(rw, r.WithContext(r.Context()))
 			} else {
 				func401(rw, r)
