@@ -58,12 +58,12 @@ func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
 	}
 }
 
-func UseDoorman(dm *Doorman) *Doorman {
-	return dm
+func UseDoorman(dm *Doorman) func() *Doorman {
+	return func() *Doorman { return dm }
 }
 
-func UseGlobalDoorman() *Doorman {
-	return globalDoorman
+func UseGlobalDoorman() func() *Doorman {
+	return func() *Doorman { return globalDoorman }
 }
 
 // InfoFromContext restores doorman info from ctx
