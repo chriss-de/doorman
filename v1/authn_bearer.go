@@ -17,12 +17,14 @@ type bearerMetaData struct {
 }
 
 type ValidationOperation struct {
-	Operation string `json:"operation"`
-	Value     string `json:"value"`
+	Operation  string `json:"operation"`
+	Value      string `json:"value"`
+	IsOptional bool   `json:"optional"`
 }
 
 type ClaimValidation struct {
 	Key         string                 `mapstructure:"key"`
+	IsOptional  bool                   `mapstructure:"optional"`
 	Validations []*ValidationOperation `mapstructure:"validations"`
 	DynamicACLS []string               `mapstructure:"dynamic_acls"`
 }
@@ -151,7 +153,7 @@ func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
 					if err != nil {
 						return err
 					}
-					if !result {
+					if !result && !validation.IsOptional {
 						return fmt.Errorf("error: %s failed for %v with %s", validation.Operation, v, validation.Value)
 					}
 				} else {
@@ -161,7 +163,7 @@ func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
 			if len(cv.DynamicACLS) > 0 {
 				a.ACLs = append(a.ACLs, cv.DynamicACLS...)
 			}
-		} else {
+		} else if !cv.IsOptional {
 			return errorMessage(cv.Key, "not found")
 		}
 	}
