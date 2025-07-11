@@ -2,6 +2,8 @@
 
 - name: basic             # protector name - used in endpoint config block
   type: basic
+  groups:
+    - read:app
   credentials:
     - username: user1     # username
       password: "asdf"    # value (plain or hashed)
@@ -9,6 +11,8 @@
 
 - name: apikey            # protector name - used in endpoint config block
   type: http_header
+  groups:
+    - whatever
   headers:
     - name: x-apikey      # http header name to use
       hashed: "sha256"    # optional or md5,sha1,sha256
@@ -16,6 +20,8 @@
 
 - name: ip
   type: ipaddress
+  groups:
+    - authed_by_network
   addresses:
     - 12.34.56.78/8
 

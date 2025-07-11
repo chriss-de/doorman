@@ -23,19 +23,21 @@ type HttpHeaderAuthenticatorInfo struct {
 type HttpHeaderAuthenticator struct {
 	Name       string       `mapstructure:"name"`
 	Type       string       `mapstructure:"type"`
+	Groups     []string     `mapstructure:"groups"`
 	Headers    []HttpHeader `mapstructure:"headers"`
 	headersMap map[string]int
 }
 
 // NewHttpHeaderAuthenticator initialize
-func NewHttpHeaderAuthenticator(name string, config map[string]interface{}) (authenticator Authenticator, err error) {
+func NewHttpHeaderAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticator, err error) {
 	var httpHeaderAuthenticator *HttpHeaderAuthenticator
 
-	if err = mapstructure.Decode(config, &httpHeaderAuthenticator); err != nil {
+	if err = mapstructure.Decode(cfg.Config, &httpHeaderAuthenticator); err != nil {
 		return nil, err
 	}
-	httpHeaderAuthenticator.Name = name
+	httpHeaderAuthenticator.Name = cfg.Name
 	httpHeaderAuthenticator.Type = "http_header"
+	httpHeaderAuthenticator.Groups = cfg.Groups
 	httpHeaderAuthenticator.headersMap = make(map[string]int)
 
 	for idx, header := range httpHeaderAuthenticator.Headers {
@@ -49,15 +51,9 @@ func NewHttpHeaderAuthenticator(name string, config map[string]interface{}) (aut
 	return httpHeaderAuthenticator, err
 }
 
-// GetName returns Authenticator name
-func (p *HttpHeaderAuthenticator) GetName() string {
-	return p.Name
-}
-
-// GetType returns type
-func (p *HttpHeaderAuthenticator) GetType() string {
-	return p.Type
-}
+func (p *HttpHeaderAuthenticator) GetName() string     { return p.Name }
+func (p *HttpHeaderAuthenticator) GetType() string     { return p.Type }
+func (p *HttpHeaderAuthenticator) GetGroups() []string { return p.Groups }
 
 func (p *HttpHeaderAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	for headerName, idx := range p.headersMap {

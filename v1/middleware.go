@@ -13,39 +13,50 @@ type contextKey struct {
 var doormanCtxKey = &contextKey{"doorman"}
 
 type Info struct {
-	Infos []AuthenticatorInfo
+	Infos  []AuthenticatorInfo
+	Groups map[string]struct{}
 }
 
-func Middleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		doormanInfo := &Info{}
+func Middleware(opts ...func() *Doorman) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			doormanInfo := &Info{}
 
-		for _, authn := range globalDoorman.loadedAuthenticators {
-			if info, err := authn.Evaluate(r); err == nil {
-				if info != nil {
-					doormanInfo.Infos = append(doormanInfo.Infos, info)
-					//for _, acl := range ep.aclList {
-					//	eppInfo.ACLs[acl] = struct{}{}
-					//}
+			for _, authn := range globalDoorman.loadedAuthenticators {
+				if info, err := authn.Evaluate(r); err == nil {
+					if info != nil {
+						doormanInfo.Infos = append(doormanInfo.Infos, info)
+						for _, group := range authn.GetGroups() {
+							doormanInfo.Groups[group] = struct{}{}
+						}
+					}
+				} else {
+					logger.Error("middleware error", "error", err)
 				}
-			} else {
-				logger.Error("middleware error", "error", err)
 			}
-		}
 
-		if globalDoorman.config.DebugLog {
-			var debugLogArgs []any
-			for _, info := range doormanInfo.Infos {
-				debugLogArgs = append(debugLogArgs, "name", info.GetName())
-				debugLogArgs = append(debugLogArgs, "type", info.GetType())
-				debugLogArgs = append(debugLogArgs, "value", fmt.Sprintf("%+v", info))
+			if globalDoorman.debugLog {
+				var debugLogArgs []any
+				for _, info := range doormanInfo.Infos {
+					debugLogArgs = append(debugLogArgs, "name", info.GetName())
+					debugLogArgs = append(debugLogArgs, "type", info.GetType())
+					debugLogArgs = append(debugLogArgs, "value", fmt.Sprintf("%+v", info))
+				}
+				logger.Debug("EPP_DEBUG: authenticators", "infos", debugLogArgs)
 			}
-			logger.Debug("EPP_DEBUG: authenticators", "infos", debugLogArgs)
-		}
 
-		ctx := context.WithValue(r.Context(), doormanCtxKey, doormanInfo)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			ctx := context.WithValue(r.Context(), doormanCtxKey, doormanInfo)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func UseDoorman(dm *Doorman) *Doorman {
+	return dm
+}
+
+func UseGlobalDoorman() *Doorman {
+	return globalDoorman
 }
 
 // InfoFromContext restores epp info from ctx

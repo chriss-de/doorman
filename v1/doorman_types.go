@@ -1,20 +1,16 @@
 package doorman
 
-type authenticatorsConfig struct {
+type AuthenticatorConfig struct {
 	Name   string         `mapstructure:"name"`
 	Type   string         `mapstructure:"type"`
+	Groups []string       `mapstructure:"groups"`
 	Config map[string]any `mapstructure:",remain"`
 }
 
-type DoormanConfig struct {
-	DebugLog       bool `mapstructure:"debug_log"`
-	Authenticators []authenticatorsConfig
-}
-
 type Doorman struct {
-	config               *DoormanConfig
-	loadedAuthenticators []Authenticator
-	authenticators       map[string]func(string, map[string]any) (Authenticator, error)
-
-	authnIdMap map[string]int
+	debugLog                 bool
+	configuredAuthenticators []*AuthenticatorConfig
+	loadedAuthenticators     []Authenticator
+	registeredAuthenticators map[string]func(*AuthenticatorConfig) (Authenticator, error)
+	authenticatorsIdMap      map[string]int
 }

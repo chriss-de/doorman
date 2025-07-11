@@ -11,17 +11,18 @@ var (
 )
 
 // NewDoorman init
-func NewDoorman(cfg *DoormanConfig, opts ...func(dm *Doorman)) (dm *Doorman, err error) {
+func NewDoorman(opts ...func(dm *Doorman)) (dm *Doorman, err error) {
 	dm = &Doorman{
-		config:         cfg,
-		authenticators: make(map[string]func(string, map[string]any) (Authenticator, error)),
+		debugLog:                 false,
+		registeredAuthenticators: make(map[string]func(*AuthenticatorConfig) (Authenticator, error)),
+		configuredAuthenticators: make([]*AuthenticatorConfig, 0),
 	}
 
 	// register Authenticators
-	dm.authenticators["basic"] = NewBasicAuthAuthenticator
-	dm.authenticators["http_header"] = NewHttpHeaderAuthenticator
-	dm.authenticators["ipaddress"] = NewIPAddressAuthenticator
-	dm.authenticators["bearer"] = NewBearerAuthenticator
+	dm.registeredAuthenticators["basic"] = NewBasicAuthAuthenticator
+	dm.registeredAuthenticators["http_header"] = NewHttpHeaderAuthenticator
+	dm.registeredAuthenticators["ipaddress"] = NewIPAddressAuthenticator
+	dm.registeredAuthenticators["bearer"] = NewBearerAuthenticator
 
 	for _, opt := range opts {
 		opt(dm)
@@ -36,13 +37,13 @@ func NewDoorman(cfg *DoormanConfig, opts ...func(dm *Doorman)) (dm *Doorman, err
 
 // NewEndpointProtector loads all supported endpoint authenticators from authenticatorsConfig
 func (dm *Doorman) loadAuthenticators() (err error) {
-	dm.authnIdMap = make(map[string]int)
+	dm.authenticatorsIdMap = make(map[string]int)
 
-	for _, authnConfig := range dm.config.Authenticators {
+	for _, authnConfig := range dm.configuredAuthenticators {
 		var a Authenticator
 
-		if authenticatorInitFunc, found := dm.authenticators[authnConfig.Type]; found {
-			if a, err = authenticatorInitFunc(authnConfig.Name, authnConfig.Config); err != nil {
+		if authenticatorInitFunc, found := dm.registeredAuthenticators[authnConfig.Type]; found {
+			if a, err = authenticatorInitFunc(authnConfig); err != nil {
 				return err
 			}
 		} else {
@@ -51,25 +52,37 @@ func (dm *Doorman) loadAuthenticators() (err error) {
 
 		//---------
 		if a != nil {
-			if _, ok := dm.authnIdMap[a.GetName()]; !ok {
+			if _, ok := dm.authenticatorsIdMap[a.GetName()]; !ok {
 				dm.loadedAuthenticators = append(dm.loadedAuthenticators, a)
-				dm.authnIdMap[a.GetName()] = len(dm.loadedAuthenticators) - 1
+				dm.authenticatorsIdMap[a.GetName()] = len(dm.loadedAuthenticators) - 1
 			} else {
-				return fmt.Errorf("duplicated name in authnConfig authenticatorsConfig. '%s'", a.GetName())
+				return fmt.Errorf("duplicated name in authenticatorsConfigs. '%s'", a.GetName())
 			}
 		}
 	}
 	return nil
 }
 
-func WithAuthenticator(name string, initFunc func(string, map[string]any) (Authenticator, error)) func(dm *Doorman) {
+func WithAuthenticatorConfigs(configs []*AuthenticatorConfig) func(dm *Doorman) {
 	return func(dm *Doorman) {
-		dm.authenticators[name] = initFunc
+		dm.configuredAuthenticators = configs
+	}
+}
+
+func RegisterNewAuthenticator(name string, initFunc func(*AuthenticatorConfig) (Authenticator, error)) func(dm *Doorman) {
+	return func(dm *Doorman) {
+		dm.registeredAuthenticators[name] = initFunc
 	}
 }
 
 func AsGlobalDefault() func(dm *Doorman) {
 	return func(dm *Doorman) {
 		globalDoorman = dm
+	}
+}
+
+func WithDebugLog() func(dm *Doorman) {
+	return func(dm *Doorman) {
+		dm.debugLog = true
 	}
 }

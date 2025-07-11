@@ -2,15 +2,17 @@ package doorman
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type IPAddressAuthenticator struct {
 	Name      string   `mapstructure:"name"`
 	Type      string   `mapstructure:"type"`
+	Groups    []string `mapstructure:"groups"`
 	Addresses []string `mapstructure:"addresses"`
 	addresses []*net.IPNet
 }
@@ -22,14 +24,15 @@ type IPAddressAuthenticatorInfo struct {
 }
 
 // NewIPAddressAuthenticator initialize
-func NewIPAddressAuthenticator(name string, config map[string]interface{}) (authenticator Authenticator, err error) {
+func NewIPAddressAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticator, err error) {
 	var ipAddressAuthenticator *IPAddressAuthenticator
 
-	if err = mapstructure.Decode(config, &ipAddressAuthenticator); err != nil {
+	if err = mapstructure.Decode(cfg.Config, &ipAddressAuthenticator); err != nil {
 		return nil, err
 	}
-	ipAddressAuthenticator.Name = name
+	ipAddressAuthenticator.Name = cfg.Name
 	ipAddressAuthenticator.Type = "ipaddress"
+	ipAddressAuthenticator.Groups = cfg.Groups
 
 	for _, addr := range ipAddressAuthenticator.Addresses {
 		if _, netAddr, aErr := net.ParseCIDR(addr); aErr != nil {
@@ -42,15 +45,9 @@ func NewIPAddressAuthenticator(name string, config map[string]interface{}) (auth
 	return ipAddressAuthenticator, err
 }
 
-// GetName returns Authenticator name
-func (p *IPAddressAuthenticator) GetName() string {
-	return p.Name
-}
-
-// GetType returns type
-func (p *IPAddressAuthenticator) GetType() string {
-	return p.Type
-}
+func (p *IPAddressAuthenticator) GetName() string     { return p.Name }
+func (p *IPAddressAuthenticator) GetType() string     { return p.Type }
+func (p *IPAddressAuthenticator) GetGroups() []string { return p.Groups }
 
 func (p *IPAddressAuthenticator) Evaluate(r *http.Request) (pi AuthenticatorInfo, err error) {
 	remoteAddr := r.RemoteAddr

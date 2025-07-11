@@ -5,6 +5,7 @@ import "net/http"
 type Authenticator interface {
 	GetName() string
 	GetType() string
+	GetGroups() []string
 	Evaluate(r *http.Request) (AuthenticatorInfo, error)
 }
 

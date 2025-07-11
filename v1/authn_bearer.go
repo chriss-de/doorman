@@ -3,13 +3,14 @@ package doorman
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/mitchellh/mapstructure"
 	"io"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/mitchellh/mapstructure"
 )
 
 type bearerMetaData struct {
@@ -31,6 +32,7 @@ type TokenAccessor map[string]string
 type BearerAuthenticator struct {
 	Name              string            `mapstructure:"name"`
 	Type              string            `mapstructure:"type"`
+	Groups            []string          `mapstructure:"groups"`
 	MetaUrl           string            `mapstructure:"meta_url"`
 	JwksUrl           string            `mapstructure:"jwks_url"`
 	KeysFetchInterval time.Duration     `mapstructure:"keys_fetch_interval"`
@@ -47,7 +49,7 @@ type BearerAuthenticatorInfo struct {
 }
 
 // NewBearerAuthenticator initialize
-func NewBearerAuthenticator(name string, config map[string]interface{}) (authenticator Authenticator, err error) {
+func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticator, err error) {
 	var (
 		decoder             *mapstructure.Decoder
 		bearerAuthenticator *BearerAuthenticator
@@ -60,12 +62,13 @@ func NewBearerAuthenticator(name string, config map[string]interface{}) (authent
 	if err != nil {
 		return nil, err
 	}
-	if err = decoder.Decode(config); err != nil {
+	if err = decoder.Decode(cfg.Config); err != nil {
 		return nil, err
 	}
 
-	bearerAuthenticator.Name = name
+	bearerAuthenticator.Name = cfg.Name
 	bearerAuthenticator.Type = "bearer"
+	bearerAuthenticator.Groups = cfg.Groups
 	bearerAuthenticator.httpClient = &http.Client{}
 
 	// sanity check
@@ -105,15 +108,9 @@ func NewBearerAuthenticator(name string, config map[string]interface{}) (authent
 	return bearerAuthenticator, nil
 }
 
-// GetName returns Authenticator name
-func (p *BearerAuthenticator) GetName() string {
-	return p.Name
-}
-
-// GetType returns type
-func (p *BearerAuthenticator) GetType() string {
-	return p.Type
-}
+func (p *BearerAuthenticator) GetName() string     { return p.Name }
+func (p *BearerAuthenticator) GetType() string     { return p.Type }
+func (p *BearerAuthenticator) GetGroups() []string { return p.Groups }
 
 func (p *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, error) {
 	var (
