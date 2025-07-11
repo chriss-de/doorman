@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -17,14 +16,15 @@ type bearerMetaData struct {
 	JwksUri string `json:"jwks_uri"`
 }
 
+type ValidationOperation struct {
+	Operation string `json:"operation"`
+	Value     string `json:"value"`
+}
+
 type ClaimValidation struct {
-	Key      string  `mapstructure:"key"`
-	Type     *string `mapstructure:"type"`
-	Value    any     `mapstructure:"value"`
-	Length   *int    `mapstructure:"length"`
-	Contains any     `mapstructure:"contains"`
-	//GreaterThan *int    `mapstructure:"gt"`
-	//LessThan    *int    `mapstructure:"lt"`
+	Key         string                 `mapstructure:"key"`
+	Validations []*ValidationOperation `mapstructure:"validations"`
+	DynamicACLS []string               `mapstructure:"dynamic_acls"`
 }
 
 type TokenAccessor map[string]string
@@ -84,7 +84,7 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 		if cv.Key == "" {
 			return nil, fmt.Errorf("claim validation needs a key")
 		}
-		if cv.Value == nil && cv.Type == nil && cv.Contains == nil && cv.Length == nil {
+		if len(cv.Validations) == 0 {
 			return nil, fmt.Errorf("need at least one validation check")
 		}
 	}
@@ -145,37 +145,21 @@ func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
 	for _, cv := range a.ClaimsValidations {
 		v := getFromTokenPayload(cv.Key, tokenClaims)
 		if v != nil {
-			switch typedValue := v.(type) {
-			case string:
-				if cv.Value != nil && typedValue != cv.Value {
-					return errorMessage(cv.Key, "value")
+			for _, validation := range cv.Validations {
+				if cvo, found := claimValidationOperations[validation.Operation]; found {
+					result, err := cvo(validation, v)
+					if err != nil {
+						return err
+					}
+					if !result {
+						return fmt.Errorf("invalid length")
+					}
+				} else {
+					return fmt.Errorf("invalid validation")
 				}
-				if cv.Length != nil && len(typedValue) != *cv.Length {
-					return errorMessage(cv.Key, "length")
-				}
-				if cv.Type != nil && *cv.Type != "string" {
-					return errorMessage(cv.Key, "type")
-				}
-				if cv.Contains != nil && strings.Contains(typedValue, fmt.Sprint(cv.Contains)) {
-					return errorMessage(cv.Key, "contains")
-				}
-			case int, int8, int16, int32, int64, float32, float64:
-				if cv.Value != nil && typedValue != cv.Value {
-					return errorMessage(cv.Key, "value")
-				}
-				if cv.Type != nil && *cv.Type != "number" {
-					return errorMessage(cv.Key, "type")
-				}
-			case []any:
-				if cv.Length != nil && len(typedValue) != *cv.Length {
-					return errorMessage(cv.Key, "length")
-				}
-				if cv.Type != nil && *cv.Type != "array" {
-					return errorMessage(cv.Key, "type")
-				}
-				if cv.Contains != nil && !slices.Contains(typedValue, cv.Contains) {
-					return errorMessage(cv.Key, "contains")
-				}
+			}
+			if len(cv.DynamicACLS) > 0 {
+				a.ACLs = append(a.ACLs, cv.DynamicACLS...)
 			}
 		} else {
 			return errorMessage(cv.Key, "not found")

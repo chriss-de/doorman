@@ -30,14 +30,16 @@
   # one of
   jwks_url: [issuer]/protocol/openid-connect/certs
   meta_url: [issuer]/.well-known/openid-configuration
-
 #  keys_fetch_interval: 1h
 
-#  token_accessor: ???
+#  token_accessor:
+#  - keyName: key.name.in.token
+#  - otherName: token.id
 
 #  claims_validations:
 #  - key: a.s.d
-#    type: int | string | strs | ints
-#    value: 123
-#    length: 3
-#    contains: "asd"
+#    validation:
+#    - operation: is_number | is_string | contains | len
+#      value: 123 | abc | 3     
+#    dynamic_acls:
+#    - acl_added_to_acls
