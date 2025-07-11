@@ -69,21 +69,21 @@ func (dm *Doorman) loadAuthenticators() (err error) {
 	return nil
 }
 
-func WithAuthenticatorConfigs(configs []*AuthenticatorConfig) func(dm *Doorman) error {
+func WithNewAuthenticatorConfigs(configs []*AuthenticatorConfig) func(dm *Doorman) error {
 	return func(dm *Doorman) error {
 		dm.configuredAuthenticators = configs
 		return nil
 	}
 }
 
-func RegisterNewAuthenticator(name string, initFunc func(*AuthenticatorConfig) (Authenticator, error)) func(dm *Doorman) error {
+func WithNewRegisterAuthenticator(name string, initFunc func(*AuthenticatorConfig) (Authenticator, error)) func(dm *Doorman) error {
 	return func(dm *Doorman) error {
 		dm.registeredAuthenticators[name] = initFunc
 		return nil
 	}
 }
 
-func AsGlobalDefault(force bool) func(dm *Doorman) error {
+func WithNewAsGlobalDefault(force bool) func(dm *Doorman) error {
 	return func(dm *Doorman) error {
 		if globalDoorman != nil && !force {
 			return fmt.Errorf("global doorman already set")

@@ -10,11 +10,11 @@ type Logger interface {
 
 type NullLogger struct{}
 
-func (NullLogger) Error(msg string, args ...any) {}
-func (NullLogger) Info(msg string, args ...any)  {}
-func (NullLogger) Debug(msg string, args ...any) {}
+func (NullLogger) Error(string, ...any) {}
+func (NullLogger) Info(string, ...any)  {}
+func (NullLogger) Debug(string, ...any) {}
 
-func WithLogger(l Logger) func(epp *Doorman) error {
+func WithNewLogger(l Logger) func(epp *Doorman) error {
 	return func(epp *Doorman) error {
 		if l == nil {
 			return errors.New("logger cannot be nil")

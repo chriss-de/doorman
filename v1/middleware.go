@@ -56,11 +56,11 @@ func Middleware(opts ...MiddlewareFunc) func(http.Handler) http.Handler {
 	}
 }
 
-func UseDoorman(dm *Doorman) func() *Doorman {
+func WithMiddlewareUseDoorman(dm *Doorman) func() *Doorman {
 	return func() *Doorman { return dm }
 }
 
-func UseGlobalDoorman() func() *Doorman {
+func WithMiddlewareUseGlobalDoorman() func() *Doorman {
 	return func() *Doorman { return globalDoorman }
 }
 
