@@ -15,8 +15,8 @@ type HttpHeader struct {
 }
 
 type HttpHeaderAuthenticatorInfo struct {
-	Authenticator *HttpHeaderAuthenticator
-	ApiKeyValue   string
+	Authenticator   *HttpHeaderAuthenticator
+	HttpHeaderValue string
 }
 
 type HttpHeaderAuthenticator struct {
@@ -65,8 +65,8 @@ func (a *HttpHeaderAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, 
 				headerValue = httpHeader.hasher(headerValue)
 			}
 			if headerValue == httpHeader.Value {
-				akpi := &HttpHeaderAuthenticatorInfo{Authenticator: a, ApiKeyValue: headerValue}
-				return akpi, nil
+				hhai := &HttpHeaderAuthenticatorInfo{Authenticator: a, HttpHeaderValue: headerValue}
+				return hhai, nil
 			}
 		}
 	}
