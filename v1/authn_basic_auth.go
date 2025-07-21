@@ -10,10 +10,11 @@ import (
 )
 
 type BasicAuthCredential struct {
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	Hashed   string `mapstructure:"hashed"`
-	hasher   func(string) string
+	Username    string   `mapstructure:"username"`
+	Password    string   `mapstructure:"password"`
+	Hashed      string   `mapstructure:"hashed"`
+	DynamicACLS []string `mapstructure:"dynamic_acls"`
+	hasher      func(string) string
 }
 
 type BasicAuthAuthenticatorInfo struct {
@@ -80,6 +81,9 @@ func (a *BasicAuthAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, e
 			}
 
 			if password == cred.Password {
+				if len(cred.DynamicACLS) > 0 {
+					a.ACLs = append(a.ACLs, cred.DynamicACLS...)
+				}
 				bapi := &BasicAuthAuthenticatorInfo{Authenticator: a, Username: username}
 
 				return bapi, nil

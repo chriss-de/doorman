@@ -8,15 +8,17 @@ import (
 )
 
 type HttpHeader struct {
-	Name   string `mapstructure:"name"`
-	Value  string `mapstructure:"value"`
-	Hashed string `mapstructure:"hashed"`
-	hasher func(string) string
+	Name            string   `mapstructure:"name"`
+	Value           string   `mapstructure:"value"`
+	Hashed          string   `mapstructure:"hashed"`
+	CapturedHeaders []string `mapstructure:"capture_headers"`
+	DynamicACLS     []string `mapstructure:"dynamic_acls"`
+	hasher          func(string) string
 }
 
 type HttpHeaderAuthenticatorInfo struct {
 	Authenticator   *HttpHeaderAuthenticator
-	HttpHeaderValue string
+	CapturedHeaders map[string]string
 }
 
 type HttpHeaderAuthenticator struct {
@@ -65,7 +67,18 @@ func (a *HttpHeaderAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, 
 				headerValue = httpHeader.hasher(headerValue)
 			}
 			if headerValue == httpHeader.Value {
-				hhai := &HttpHeaderAuthenticatorInfo{Authenticator: a, HttpHeaderValue: headerValue}
+				hhai := &HttpHeaderAuthenticatorInfo{Authenticator: a, CapturedHeaders: make(map[string]string)}
+				for _, header := range httpHeader.CapturedHeaders {
+					cHeaderValue := ""
+					cHeaders := r.Header[header]
+					if len(cHeaders) > 0 {
+						cHeaderValue = cHeaders[0]
+					}
+					hhai.CapturedHeaders[header] = cHeaderValue
+				}
+				if len(httpHeader.DynamicACLS) > 0 {
+					a.ACLs = append(a.ACLs, httpHeader.DynamicACLS...)
+				}
 				return hhai, nil
 			}
 		}

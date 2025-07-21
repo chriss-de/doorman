@@ -8,6 +8,8 @@
     - username: user1     # username
       password: "asdf"    # value (plain or hashed)
       hashed: "md5"       # optional: md5,sha1,sha256
+      dynamic_acls:
+        - acl_added_to_acls
 
 - name: apikey            # protector name - used in endpoint config block
   type: http_header
@@ -17,6 +19,10 @@
     - name: x-apikey      # http header name to use
       hashed: "sha256"    # optional or md5,sha1,sha256
       value: "asdf"       # value (plain or hashed)
+      capture_headers:    # other headers from Request that should be present in Info
+        - Content-Type
+      dynamic_acls:
+        - acl_added_to_acls
 
 - name: ip
   type: ipaddress

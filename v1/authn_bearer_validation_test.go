@@ -1,6 +1,7 @@
 package doorman
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -74,19 +75,21 @@ var (
 
 func TestValidationOperations(t *testing.T) {
 	for idx, tc := range testCases {
-		t.Logf("tc[%d]: running test case for key '%s' : operation: %s", idx, tc.key, tc.vo.Operation)
-		keyValue := getFromTokenPayload(tc.key, testTokenValidation)
-		if cvo, found := claimValidationOperations[tc.vo.Operation]; found {
-			result, err := cvo(tc.vo, keyValue)
-			if err != nil {
-				t.Errorf("tc[%d]: %v returned error: %v", idx, tc.vo, err)
+		t.Run(fmt.Sprintf("tc[%d]: running test case for key '%s' : operation: %s", idx, tc.key, tc.vo.Operation), func(t *testing.T) {
+			t.Parallel()
+			keyValue := getFromTokenPayload(tc.key, testTokenValidation)
+			if cvo, found := claimValidationOperations[tc.vo.Operation]; found {
+				result, err := cvo(tc.vo, keyValue)
+				if err != nil {
+					t.Errorf("tc[%d]: %v returned error: %v", idx, tc.vo, err)
+				}
+				if result != tc.expected {
+					t.Errorf("tc[%d]: %v did not return expected result (expected=%t , result=%t)", idx, tc.vo, tc.expected, result)
+				}
+			} else {
+				t.Errorf("tc[%d]: claimValidationOperations[%v] not found", idx, tc.vo.Operation)
 			}
-			if result != tc.expected {
-				t.Errorf("tc[%d]: %v did not return expected result (expected=%t , result=%t)", idx, tc.vo, tc.expected, result)
-			}
-		} else {
-			t.Errorf("tc[%d]: claimValidationOperations[%v] not found", idx, tc.vo.Operation)
-		}
+		})
 
 	}
 
