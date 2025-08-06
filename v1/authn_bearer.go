@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,7 +30,7 @@ type ClaimValidation struct {
 	DynamicACLS []string               `mapstructure:"dynamic_acls"`
 }
 
-type TokenAccessor map[string]string
+type TokenKeyAliases map[string]string
 
 type BearerAuthenticator struct {
 	Name              string            `mapstructure:"name"`
@@ -39,7 +40,8 @@ type BearerAuthenticator struct {
 	JwksUrl           string            `mapstructure:"jwks_url"`
 	KeysFetchInterval time.Duration     `mapstructure:"keys_fetch_interval"`
 	ClaimsValidations []ClaimValidation `mapstructure:"claims_validations"`
-	TokenAccessor     TokenAccessor     `mapstructure:"token_accessor"`
+	TokenKeyAliases   TokenKeyAliases   `mapstructure:"token_key_aliases"`
+	TokenMapACLs      []string          `mapstructure:"token_map_acls"`
 	httpClient        *http.Client
 	bearerKeysManager *BearerKeyManager
 }
@@ -135,12 +137,40 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 		if err = a.validateClaims(tokenClaims); err != nil {
 			return nil, err
 		}
+		if err = a.tokenMapACLs(tokenClaims); err != nil {
+			return nil, err
+		}
 
 		bpi := &BearerAuthenticatorInfo{Authenticator: a, TokenClaims: tokenClaims, Token: token}
 		return bpi, nil
 
 	}
 	return nil, nil
+}
+
+func (a *BearerAuthenticator) tokenMapACLs(tokenClaims jwt.MapClaims) error {
+	for _, key := range a.TokenMapACLs {
+		anyVal := getFromTokenPayload(a.mapKey(key), tokenClaims)
+		switch val := anyVal.(type) {
+		case string:
+			a.ACLs = append(a.ACLs, val)
+		case []string:
+			a.ACLs = append(a.ACLs, val...)
+		case int:
+			a.ACLs = append(a.ACLs, strconv.Itoa(val))
+		case []int:
+			for _, i := range val {
+				a.ACLs = append(a.ACLs, strconv.Itoa(i))
+			}
+		case map[string]any:
+			for k := range val {
+				a.ACLs = append(a.ACLs, k)
+			}
+		default:
+			return fmt.Errorf("unsupported token value for ACL mapping. %T", val)
+		}
+	}
+	return nil
 }
 
 func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
@@ -201,16 +231,20 @@ func (a *BearerAuthenticator) fetchMetaData() (err error) {
 	return nil
 }
 
-func (i *BearerAuthenticatorInfo) mapKey(key string) string {
+func (a *BearerAuthenticator) mapKey(key string) string {
 	keyResult := key
 
-	if len(i.Authenticator.TokenAccessor) > 0 {
-		if _, f := i.Authenticator.TokenAccessor[key]; f {
-			keyResult = i.Authenticator.TokenAccessor[key]
+	if len(a.TokenKeyAliases) > 0 {
+		if _, f := a.TokenKeyAliases[key]; f {
+			keyResult = a.TokenKeyAliases[key]
 		}
 	}
 
 	return keyResult
+}
+
+func (i *BearerAuthenticatorInfo) mapKey(key string) string {
+	return i.Authenticator.mapKey(key)
 }
 
 func (i *BearerAuthenticatorInfo) GetStringFromToken(key string) string {

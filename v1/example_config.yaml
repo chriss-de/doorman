@@ -38,9 +38,12 @@
   meta_url: [issuer]/.well-known/openid-configuration
 #  keys_fetch_interval: 1h
 
-#  token_accessor:
+#  token_key_aliases:
 #  - keyName: key.name.in.token
 #  - otherName: token.id
+
+#  token_map_acls:
+#  - key.name.in.token      # the value(s) of this key will be put as ACL(s)
 
 #  claims_validations:
 #  - key: a.s.d
