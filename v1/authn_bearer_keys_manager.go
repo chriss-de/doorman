@@ -2,6 +2,7 @@ package doorman
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -19,17 +20,21 @@ import (
 )
 
 type bearerSignKey struct {
-	Kty       string   `json:"kty"`
-	Use       string   `json:"use"`
-	Kid       string   `json:"kid"`
-	N         string   `json:"n"`
-	E         string   `json:"e"`
-	X5t       string   `json:"x5t"`
-	X5c       []string `json:"x5c"`
-	Curve     string   `json:"crv"`
-	X         string   `json:"x"`
-	Y         string   `json:"y"`
-	publicKey *rsa.PublicKey
+	publicKey crypto.PublicKey
+
+	Kid string `json:"kid"`
+	Kty string `json:"kty"`
+	Alg string `json:"alg"`
+	Use string `json:"use"`
+	// RSA
+	X5t string   `json:"x5t"`
+	X5c []string `json:"x5c"`
+	N   string   `json:"n"`
+	E   string   `json:"e"`
+	// EC
+	Curve string `json:"crv"`
+	X     string `json:"x"`
+	Y     string `json:"y"`
 }
 
 type JwksUrlResponse struct {
@@ -117,16 +122,7 @@ func (bkm *BearerKeyManager) fetchKeys() (err error) {
 	bkm.keys = make([]*bearerSignKey, len(newKeys.Keys))
 	for idx, key := range newKeys.Keys {
 		_key := key
-		switch _key.Kty {
-		case "RSA":
-			_key.publicKey = getPublicKeyFromModulusAndExponent(_key.N, _key.E)
-		case "EC":
-
-		default:
-			logger.Info("unsupported key type", "type", _key.Kty)
-			continue
-		}
-
+		_key.parsePublicKey()
 		bkm.tokenKeysMap[_key.getID()] = idx
 		bkm.keys[idx] = &_key
 	}
@@ -185,23 +181,19 @@ func (bkm *BearerKeyManager) getSignatureKey(token *jwt.Token) (out any, err err
 }
 
 func (bsk *bearerSignKey) parsePublicKey() {
-	switch bsk.Kty {
-	case "RSA":
+	switch {
+	case bsk.Kty == "RSA":
 		bsk.publicKey = getPublicKeyFromModulusAndExponent(bsk.N, bsk.E)
-	//case "EC":
-	//	var curve ecdh.Curve
-	//	switch bsk.Curve {
-	//	case "P-256":
-	//		curve = ecdh.P256()
-	//	case "P-384":
-	//		curve = ecdh.P384()
-	//	case "P-521":
-	//		curve = ecdh.P521()
-	//	}
-	//	bsk.p  getECDSAPublicKeyFromXAndY(curve, bsk.X, bsk.Y)
-
+	case bsk.Kty == "EC" && bsk.Alg == "ES256":
+		bsk.publicKey = getECDSAPublicKeyFromXAndY(ecdh.P256(), bsk.X, bsk.Y)
+	case bsk.Kty == "EC" && bsk.Alg == "ES384":
+		bsk.publicKey = getECDSAPublicKeyFromXAndY(ecdh.P384(), bsk.X, bsk.Y)
+	case bsk.Kty == "EC" && bsk.Alg == "ES512":
+		bsk.publicKey = getECDSAPublicKeyFromXAndY(ecdh.P521(), bsk.X, bsk.Y)
+		//case "EDDSA":
+		//	bsk.publicKey = getED25519PublicKeyFromXAndY()
 	default:
-		logger.Info("unsupported key type", "type", bsk.Kty)
+		logger.Info("unsupported key type", "type", bsk.Kty, "alg", bsk.Alg)
 	}
 
 }
@@ -230,6 +222,16 @@ func getECDSAPublicKeyFromXAndY(curve ecdh.Curve, x, y string) *ecdsa.PublicKey 
 
 	return &ecdsa.PublicKey{Curve: nil, X: xBigInt, Y: yBigInt}
 }
+
+//func getED25519PublicKeyFromXAndY(curve ecdh.Curve, x, y string) *ed25519.PublicKey {
+//	xBytes, _ := base64.RawURLEncoding.DecodeString(x)
+//	yBytes, _ := base64.RawURLEncoding.DecodeString(y)
+//
+//	xBigInt := new(big.Int).SetBytes(xBytes)
+//	yBigInt := new(big.Int).SetBytes(yBytes)
+//
+//	return &ed25519.PublicKey{}
+//}
 
 func (bsk *bearerSignKey) getID() string {
 	for _, idVal := range idOrder {
