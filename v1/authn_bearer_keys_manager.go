@@ -2,6 +2,8 @@ package doorman
 
 import (
 	"bytes"
+	"crypto/ecdh"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -24,6 +26,9 @@ type bearerSignKey struct {
 	E         string   `json:"e"`
 	X5t       string   `json:"x5t"`
 	X5c       []string `json:"x5c"`
+	Curve     string   `json:"crv"`
+	X         string   `json:"x"`
+	Y         string   `json:"y"`
 	publicKey *rsa.PublicKey
 }
 
@@ -112,9 +117,22 @@ func (bkm *BearerKeyManager) fetchKeys() (err error) {
 	bkm.keys = make([]*bearerSignKey, len(newKeys.Keys))
 	for idx, key := range newKeys.Keys {
 		_key := key
-		_key.publicKey = getPublicKeyFromModulusAndExponent(_key.N, _key.E)
+		switch _key.Kty {
+		case "RSA":
+			_key.publicKey = getPublicKeyFromModulusAndExponent(_key.N, _key.E)
+		case "EC":
+
+		default:
+			logger.Info("unsupported key type", "type", _key.Kty)
+			continue
+		}
+
 		bkm.tokenKeysMap[_key.getID()] = idx
 		bkm.keys[idx] = &_key
+	}
+
+	if len(bkm.keys) == 0 {
+		return fmt.Errorf("no keys found")
 	}
 
 	return nil
@@ -166,6 +184,28 @@ func (bkm *BearerKeyManager) getSignatureKey(token *jwt.Token) (out any, err err
 	return bkm.keys[idx].publicKey, nil
 }
 
+func (bsk *bearerSignKey) parsePublicKey() {
+	switch bsk.Kty {
+	case "RSA":
+		bsk.publicKey = getPublicKeyFromModulusAndExponent(bsk.N, bsk.E)
+	//case "EC":
+	//	var curve ecdh.Curve
+	//	switch bsk.Curve {
+	//	case "P-256":
+	//		curve = ecdh.P256()
+	//	case "P-384":
+	//		curve = ecdh.P384()
+	//	case "P-521":
+	//		curve = ecdh.P521()
+	//	}
+	//	bsk.p  getECDSAPublicKeyFromXAndY(curve, bsk.X, bsk.Y)
+
+	default:
+		logger.Info("unsupported key type", "type", bsk.Kty)
+	}
+
+}
+
 // getPublicKeyFromModulusAndExponent gets public key from Modules and Exponent provided from JwksURI
 func getPublicKeyFromModulusAndExponent(n, e string) *rsa.PublicKey {
 	nBytes, _ := base64.RawURLEncoding.DecodeString(n)
@@ -179,6 +219,16 @@ func getPublicKeyFromModulusAndExponent(n, e string) *rsa.PublicKey {
 	buffer.Write(eBytes)
 	exponent := binary.BigEndian.Uint32(buffer.Bytes())
 	return &rsa.PublicKey{N: z, E: int(exponent)}
+}
+
+func getECDSAPublicKeyFromXAndY(curve ecdh.Curve, x, y string) *ecdsa.PublicKey {
+	xBytes, _ := base64.RawURLEncoding.DecodeString(x)
+	yBytes, _ := base64.RawURLEncoding.DecodeString(y)
+
+	xBigInt := new(big.Int).SetBytes(xBytes)
+	yBigInt := new(big.Int).SetBytes(yBytes)
+
+	return &ecdsa.PublicKey{Curve: nil, X: xBigInt, Y: yBigInt}
 }
 
 func (bsk *bearerSignKey) getID() string {
