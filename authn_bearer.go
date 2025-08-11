@@ -150,24 +150,25 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 
 func (a *BearerAuthenticator) tokenMapACLs(tokenClaims jwt.MapClaims) error {
 	for _, key := range a.TokenMapACLs {
-		anyVal := getFromTokenPayload(a.mapKey(key), tokenClaims)
-		switch val := anyVal.(type) {
-		case string:
-			a.ACLs = append(a.ACLs, val)
-		case []string:
-			a.ACLs = append(a.ACLs, val...)
-		case int:
-			a.ACLs = append(a.ACLs, strconv.Itoa(val))
-		case []int:
-			for _, i := range val {
-				a.ACLs = append(a.ACLs, strconv.Itoa(i))
-			}
-		case map[string]any:
-			for k := range val {
-				a.ACLs = append(a.ACLs, k)
+		tokenVal := getFromTokenPayload(a.mapKey(key), tokenClaims)
+		switch anyVal := tokenVal.(type) {
+		case []any, any:
+			switch val := anyVal.(type) {
+			case string:
+				a.ACLs = append(a.ACLs, val)
+			case []string:
+				a.ACLs = append(a.ACLs, val...)
+			case int:
+				a.ACLs = append(a.ACLs, strconv.Itoa(val))
+			case []int:
+				for _, i := range val {
+					a.ACLs = append(a.ACLs, strconv.Itoa(i))
+				}
+			default:
+				return fmt.Errorf("unsupported token value for ACL mapping. %T", val)
 			}
 		default:
-			return fmt.Errorf("unsupported token value for ACL mapping. %T", val)
+			return fmt.Errorf("unsupported token value for ACL mapping. %T", anyVal)
 		}
 	}
 	return nil

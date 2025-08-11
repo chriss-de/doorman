@@ -3,8 +3,8 @@ package doorman
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdh"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -183,44 +183,46 @@ func (bkm *BearerKeyManager) getSignatureKey(token *jwt.Token) (out any, err err
 func (bsk *bearerSignKey) parsePublicKey() {
 	switch {
 	case bsk.Kty == "RSA":
-		bsk.publicKey = getPublicKeyFromModulusAndExponent(bsk.N, bsk.E)
+		bsk.publicKey = getRSAPublicKeyFromModulusAndExponent(bsk.N, bsk.E)
 	case bsk.Kty == "EC" && bsk.Alg == "ES256":
-		bsk.publicKey = getECDSAPublicKeyFromXAndY(ecdh.P256(), bsk.X, bsk.Y)
+		bsk.publicKey = getECDSAPublicKeyFromXAndY(elliptic.P256(), bsk.X, bsk.Y)
 	case bsk.Kty == "EC" && bsk.Alg == "ES384":
-		bsk.publicKey = getECDSAPublicKeyFromXAndY(ecdh.P384(), bsk.X, bsk.Y)
+		bsk.publicKey = getECDSAPublicKeyFromXAndY(elliptic.P384(), bsk.X, bsk.Y)
 	case bsk.Kty == "EC" && bsk.Alg == "ES512":
-		bsk.publicKey = getECDSAPublicKeyFromXAndY(ecdh.P521(), bsk.X, bsk.Y)
+		bsk.publicKey = getECDSAPublicKeyFromXAndY(elliptic.P521(), bsk.X, bsk.Y)
 		//case "EDDSA":
 		//	bsk.publicKey = getED25519PublicKeyFromXAndY()
 	default:
-		logger.Info("unsupported key type", "type", bsk.Kty, "alg", bsk.Alg)
+		logger.Info("unsupported key", "type", bsk.Kty, "alg", bsk.Alg)
 	}
 
 }
 
-// getPublicKeyFromModulusAndExponent gets public key from Modules and Exponent provided from JwksURI
-func getPublicKeyFromModulusAndExponent(n, e string) *rsa.PublicKey {
+// getRSAPublicKeyFromModulusAndExponent gets public key from Modules and Exponent provided from JwksURI
+func getRSAPublicKeyFromModulusAndExponent(n, e string) *rsa.PublicKey {
 	nBytes, _ := base64.RawURLEncoding.DecodeString(n)
 	eBytes, _ := base64.RawURLEncoding.DecodeString(e)
-	z := new(big.Int)
-	z.SetBytes(nBytes)
+
+	nBigInt := new(big.Int).SetBytes(nBytes)
+
 	//decoding key.E returns a three byte slice, https://golang.org/pkg/encoding/binary/#Read and other conversions fail
 	//since they are expecting to read as many bytes as the size of int being returned (4 bytes for uint32 for example)
 	var buffer bytes.Buffer
 	buffer.WriteByte(0)
 	buffer.Write(eBytes)
 	exponent := binary.BigEndian.Uint32(buffer.Bytes())
-	return &rsa.PublicKey{N: z, E: int(exponent)}
+
+	return &rsa.PublicKey{N: nBigInt, E: int(exponent)}
 }
 
-func getECDSAPublicKeyFromXAndY(curve ecdh.Curve, x, y string) *ecdsa.PublicKey {
+func getECDSAPublicKeyFromXAndY(curve elliptic.Curve, x, y string) *ecdsa.PublicKey {
 	xBytes, _ := base64.RawURLEncoding.DecodeString(x)
 	yBytes, _ := base64.RawURLEncoding.DecodeString(y)
 
 	xBigInt := new(big.Int).SetBytes(xBytes)
 	yBigInt := new(big.Int).SetBytes(yBytes)
 
-	return &ecdsa.PublicKey{Curve: nil, X: xBigInt, Y: yBigInt}
+	return &ecdsa.PublicKey{Curve: curve, X: xBigInt, Y: yBigInt}
 }
 
 //func getED25519PublicKeyFromXAndY(curve ecdh.Curve, x, y string) *ed25519.PublicKey {
