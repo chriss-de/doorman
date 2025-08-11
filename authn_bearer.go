@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -152,24 +151,33 @@ func (a *BearerAuthenticator) tokenMapACLs(tokenClaims jwt.MapClaims) error {
 	for _, key := range a.TokenMapACLs {
 		tokenVal := getFromTokenPayload(a.mapKey(key), tokenClaims)
 		switch anyVal := tokenVal.(type) {
-		case []any, any:
-			switch val := anyVal.(type) {
-			case string:
-				a.ACLs = append(a.ACLs, val)
-			case []string:
-				a.ACLs = append(a.ACLs, val...)
-			case int:
-				a.ACLs = append(a.ACLs, strconv.Itoa(val))
-			case []int:
-				for _, i := range val {
-					a.ACLs = append(a.ACLs, strconv.Itoa(i))
+		case []any:
+			for _, arrVal := range anyVal {
+				if err := a.tokenMapACL(arrVal); err != nil {
+					return err
 				}
-			default:
-				return fmt.Errorf("unsupported token value for ACL mapping. %T", val)
+			}
+		case any:
+			if err := a.tokenMapACL(anyVal); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("unsupported token value for ACL mapping. %T", anyVal)
 		}
+	}
+	return nil
+}
+
+func (a *BearerAuthenticator) tokenMapACL(aVal any) error {
+	switch val := aVal.(type) {
+	case string:
+		a.ACLs = append(a.ACLs, val)
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		a.ACLs = append(a.ACLs, fmt.Sprintf("%d", val))
+	case float32, float64:
+		a.ACLs = append(a.ACLs, fmt.Sprintf("%f", val))
+	default:
+		return fmt.Errorf("unsupported token content value for ACL mapping. %T", val)
 	}
 	return nil
 }
