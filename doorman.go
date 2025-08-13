@@ -76,9 +76,9 @@ func WithNewAuthenticatorConfigs(configs []*AuthenticatorConfig) func(dm *Doorma
 	}
 }
 
-func WithNewRegisterAuthenticator(name string, initFunc func(*AuthenticatorConfig) (Authenticator, error)) func(dm *Doorman) error {
+func WithNewRegisterAuthenticator(name string, authenticator RegisterAuthenticatorFunc) func(dm *Doorman) error {
 	return func(dm *Doorman) error {
-		dm.registeredAuthenticators[name] = initFunc
+		dm.registeredAuthenticators[name] = authenticator
 		return nil
 	}
 }
