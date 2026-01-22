@@ -196,7 +196,7 @@ func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
 						return fmt.Errorf("error: %s failed for %v with %s", validation.Operation, v, validation.Value)
 					}
 				} else {
-					return fmt.Errorf("invalid validation: %s", validation.Operation)
+					return fmt.Errorf("invalid validation for key '%s'", cv.Key)
 				}
 			}
 			if len(cv.DynamicACLS) > 0 {
