@@ -141,7 +141,6 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 	var (
 		token       *jwt.Token
 		tokenClaims = make(jwt.MapClaims)
-		err         error
 	)
 
 	authHeaderValue := r.Header.Get("Authorization")
@@ -159,8 +158,13 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 		}
 
 		for idx, profile := range a.ClaimsValidationGroups {
-			if err = a.validateClaimsForProfile(profile, idx, tokenClaims); err != nil {
-				logger.Info("group validation failed", "idx", idx, "err", err)
+			vr, err := a.validateClaimsForGroup(profile, idx, tokenClaims)
+			if err != nil {
+				logger.Info("group validation failed with error", "idx", idx, "err", err)
+				continue
+			}
+			if !vr {
+				logger.Debug("group validation returned false", "idx", idx, "err", err)
 				continue
 			}
 			if err = a.tokenMapACLs(profile, tokenClaims); err != nil {
@@ -209,30 +213,31 @@ func (a *BearerAuthenticator) tokenMapACL(aVal any) error {
 	return nil
 }
 
-func (a *BearerAuthenticator) validateClaimsForProfile(profile *ClaimsValidationGroup, idx int, tokenClaims jwt.MapClaims) error {
-	for _, cv := range profile.ClaimsValidations {
+func (a *BearerAuthenticator) validateClaimsForGroup(group *ClaimsValidationGroup, idx int, tokenClaims jwt.MapClaims) (bool, error) {
+	for _, cv := range group.ClaimsValidations {
 		tokenValue := getFromTokenPayload(cv.Key, tokenClaims)
 		if tokenValue != nil {
-			result, err := processValidationOperation(cv.ValidationOperation, tokenClaims)
+			result, err := processValidationOperation(cv.ValidationOperation, tokenValue)
 			if err != nil {
-				return fmt.Errorf("validation failed for group %d and key %s: %w", idx, cv.Key, err)
+				return false, fmt.Errorf("validation failed for group %d and key %s: %w", idx, cv.Key, err)
 			}
 			if !result {
 				if cv.IsOptional {
 					continue
 				}
-				logger.Debug("validation returned false for group %d and key %s", idx, cv.Key)
+				logger.Debug("validation returned false", "idx", idx, "key", cv.Key)
+				return false, nil
 
 			}
 			if len(cv.DynamicACLS) > 0 {
 				a.ACLs = append(a.ACLs, cv.DynamicACLS...)
-				return nil
+				return true, nil
 			}
 		} else if !cv.IsOptional {
-			return errorMessage(cv.Key, "not found")
+			return false, errorMessage(cv.Key, "not found")
 		}
 	}
-	return nil
+	return false, nil
 }
 
 // fetchMetaData fetches all values for IDP from metadata url

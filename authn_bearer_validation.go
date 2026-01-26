@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/go-viper/mapstructure/v2"
 )
 
 var claimValidationOperations = map[string]func(*ValidationOperation, any) (bool, error){}
@@ -148,7 +150,7 @@ func validationOperationEqual(vo *ValidationOperation, tokenValue any) (bool, er
 	case string:
 		strValue, ok := vo.Value.(string)
 		if !ok {
-			return false, errors.New("invalid value for equal. must be of type string")
+			return false, fmt.Errorf("invalid value for equal %T. must be of type string", strValue)
 		}
 		if strings.Compare(tv, strValue) == 0 {
 			return true, nil
@@ -164,10 +166,15 @@ func validationOperationEqual(vo *ValidationOperation, tokenValue any) (bool, er
 }
 
 func validationOperationOR(vo *ValidationOperation, tokenValue any) (bool, error) {
-	nestedValidationOps := vo.Value.([]*ValidationOperation)
-	result := false
+	var (
+		result        = false
+		validationOps []*ValidationOperation
+	)
+	if err := mapstructure.Decode(vo.Value, &validationOps); err != nil {
+		return false, err
+	}
 
-	for _, validation := range nestedValidationOps {
+	for _, validation := range validationOps {
 		_result, err := processValidationOperation(validation, tokenValue)
 		if err != nil {
 			return false, err
@@ -178,10 +185,15 @@ func validationOperationOR(vo *ValidationOperation, tokenValue any) (bool, error
 }
 
 func validationOperationAND(vo *ValidationOperation, tokenValue any) (bool, error) {
-	nestedValidationOps := vo.Value.([]*ValidationOperation)
-	result := true
+	var (
+		result        = true
+		validationOps []*ValidationOperation
+	)
+	if err := mapstructure.Decode(vo.Value, &validationOps); err != nil {
+		return false, err
+	}
 
-	for _, validation := range nestedValidationOps {
+	for _, validation := range validationOps {
 		_result, err := processValidationOperation(validation, tokenValue)
 		if err != nil {
 			return false, err
@@ -192,9 +204,13 @@ func validationOperationAND(vo *ValidationOperation, tokenValue any) (bool, erro
 }
 
 func validationOperationNOT(vo *ValidationOperation, tokenValue any) (bool, error) {
-	nestedValidationOps := vo.Value.(*ValidationOperation)
+	var validationOps *ValidationOperation
 
-	_result, err := processValidationOperation(nestedValidationOps, tokenValue)
+	if err := mapstructure.Decode(vo.Value, &validationOps); err != nil {
+		return false, err
+	}
+
+	_result, err := processValidationOperation(validationOps, tokenValue)
 	if err != nil {
 		return false, err
 	}

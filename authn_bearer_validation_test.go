@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -89,6 +90,27 @@ var (
 			{Operation: "not", Value: &ValidationOperation{Operation: "length", Value: 10}},
 		}}, expected: true},
 	}
+
+	testCases2 = map[string]interface{}{
+		"claims_validations": []map[string]interface{}{
+			{
+				"key": "slice01",
+				"validation": map[string]interface{}{
+					"operation": "or",
+					"value": []map[string]interface{}{
+						{
+							"operation": "length",
+							"value":     3,
+						},
+						{
+							"operation": "contains",
+							"value":     "a",
+						},
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestValidationOperations(t *testing.T) {
@@ -108,6 +130,42 @@ func TestValidationOperations(t *testing.T) {
 				t.Errorf("tc[%d]: claimValidationOperations[%v] not found", idx, tc.vo.Operation)
 			}
 		})
+
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+	var (
+		err                 error
+		decoder             *mapstructure.Decoder
+		bearerAuthenticator *BearerAuthenticator
+	)
+
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook:  mapstructure.StringToTimeDurationHookFunc(),
+		ErrorUnused: true,
+		Result:      &bearerAuthenticator,
+	})
+	if err != nil {
+		t.Errorf("returned error: %v", err)
+	}
+	if err = decoder.Decode(testCases2); err != nil {
+		t.Errorf("returned error: %v", err)
+	}
+
+	for idx, cvs := range bearerAuthenticator.ClaimsValidations {
+		keyValue := getFromTokenPayload(cvs.Key, testTokenValidation)
+		if cvo, found := claimValidationOperations[cvs.ValidationOperation.Operation]; found {
+			result, err := cvo(cvs.ValidationOperation, keyValue)
+			if err != nil {
+				t.Errorf("tc[%d]: %v returned error: %v", idx, cvs.ValidationOperation, err)
+			}
+			if result != result {
+				t.Errorf("tc[%d]: %v did not return expected result (expected=%t , result=%t)", idx, cvs.ValidationOperation, result, result)
+			}
+		} else {
+			t.Errorf("tc[%d]: claimValidationOperations[%v] not found", idx, cvs.ValidationOperation.Operation)
+		}
 
 	}
 
