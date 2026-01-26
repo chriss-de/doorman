@@ -164,7 +164,7 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 				continue
 			}
 			if !vr {
-				logger.Debug("group validation returned false", "idx", idx, "err", err)
+				logger.Debug("group validation returned false", "idx", idx)
 				continue
 			}
 			if err = a.tokenMapACLs(profile, tokenClaims); err != nil {
@@ -222,22 +222,22 @@ func (a *BearerAuthenticator) validateClaimsForGroup(group *ClaimsValidationGrou
 				return false, fmt.Errorf("validation failed for group %d and key %s: %w", idx, cv.Key, err)
 			}
 			if !result {
+				logger.Debug("validation returned false", "group", idx, "key", cv.Key, "optional", cv.IsOptional, "operation", cv.ValidationOperation.Operation, "tokenValue", tokenValue)
 				if cv.IsOptional {
 					continue
 				}
-				logger.Debug("validation returned false", "idx", idx, "key", cv.Key)
 				return false, nil
-
 			}
+
 			if len(cv.DynamicACLS) > 0 {
 				a.ACLs = append(a.ACLs, cv.DynamicACLS...)
 				return true, nil
 			}
 		} else if !cv.IsOptional {
-			return false, errorMessage(cv.Key, "not found")
+			return false, fmt.Errorf("invalid claim. key '%s' not found", cv.Key)
 		}
 	}
-	return false, nil
+	return false, fmt.Errorf("no claim validation succeded for group %d", idx)
 }
 
 // fetchMetaData fetches all values for IDP from metadata url
@@ -311,10 +311,6 @@ func getFromTokenPayload(key string, t map[string]any) any {
 		}
 	}
 	return nil
-}
-
-func errorMessage(key string, msg string) error {
-	return fmt.Errorf("invalid claim for '%s' - %s", key, msg)
 }
 
 func (i *BearerAuthenticatorInfo) GetName() string {
