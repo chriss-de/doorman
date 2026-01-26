@@ -31,11 +31,22 @@ type HttpHeaderAuthenticator struct {
 
 // NewHttpHeaderAuthenticator initialize
 func NewHttpHeaderAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticator, err error) {
-	var httpHeaderAuthenticator *HttpHeaderAuthenticator
+	var (
+		decoder                 *mapstructure.Decoder
+		httpHeaderAuthenticator *HttpHeaderAuthenticator
+	)
 
-	if err = mapstructure.Decode(cfg.Config, &httpHeaderAuthenticator); err != nil {
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		ErrorUnused: true,
+		Result:      &httpHeaderAuthenticator,
+	})
+	if err != nil {
 		return nil, err
 	}
+	if err = decoder.Decode(cfg.Config); err != nil {
+		return nil, err
+	}
+
 	httpHeaderAuthenticator.Name = cfg.Name
 	httpHeaderAuthenticator.Type = "http_header"
 	httpHeaderAuthenticator.ACLs = cfg.ACLs

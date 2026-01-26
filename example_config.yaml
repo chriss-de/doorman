@@ -48,9 +48,24 @@
 #  claims_validations:
 #  - key: a.s.d
 #    optional: true | false (default false)
-#    validations:
-#    - operation: length | type | equal | contains
+#    validation:
+#      operation: length | type | equal | contains
 #      value: 123 | abc | 3
-#      optional: true | false (default false)
 #    dynamic_acls:
 #    - acl_added_to_acls
+
+#  claims_validations_groups:
+#    - token_key_aliases:
+#        - keyName: key.name.in.token
+#        - otherName: token.id
+#      token_map_acls:
+#        - key.name.in.token      # the value(s) of this key will be put as ACL(s)
+#      claims_validations:
+#        - key: a.s.d
+#          optional: true | false (default false)
+#          validation:
+#            operation: length | type | equal | contains | or | and | not
+#            value: 123 | abc | 3
+#          dynamic_acls:
+#            - acl_added_to_acls
+#    - ....

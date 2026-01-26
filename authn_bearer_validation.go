@@ -8,11 +8,16 @@ import (
 	"strings"
 )
 
-var claimValidationOperations = map[string]func(*ValidationOperation, any) (bool, error){
-	"length":   validationOperationLength,
-	"type":     validationOperationIsType,
-	"contains": validationOperationContains,
-	"equal":    validationOperationEqual,
+var claimValidationOperations = map[string]func(*ValidationOperation, any) (bool, error){}
+
+func init() {
+	claimValidationOperations["length"] = validationOperationLength
+	claimValidationOperations["type"] = validationOperationIsType
+	claimValidationOperations["contains"] = validationOperationContains
+	claimValidationOperations["equal"] = validationOperationEqual
+	claimValidationOperations["or"] = validationOperationOR
+	claimValidationOperations["and"] = validationOperationAND
+	claimValidationOperations["not"] = validationOperationNOT
 }
 
 func RegisterBearerValidationOperation(n string, o func(*ValidationOperation, any) (bool, error)) func(dm *Doorman) {
@@ -143,7 +148,7 @@ func validationOperationEqual(vo *ValidationOperation, tokenValue any) (bool, er
 	case string:
 		strValue, ok := vo.Value.(string)
 		if !ok {
-			return false, errors.New("invalid type for contains")
+			return false, errors.New("invalid value for equal. must be of type string")
 		}
 		if strings.Compare(tv, strValue) == 0 {
 			return true, nil
@@ -156,4 +161,58 @@ func validationOperationEqual(vo *ValidationOperation, tokenValue any) (bool, er
 		return tv == vo.Value, nil
 	}
 	return false, nil
+}
+
+func validationOperationOR(vo *ValidationOperation, tokenValue any) (bool, error) {
+	nestedValidationOps := vo.Value.([]*ValidationOperation)
+	result := false
+
+	for _, validation := range nestedValidationOps {
+		_result, err := processValidationOperation(validation, tokenValue)
+		if err != nil {
+			return false, err
+		}
+		result = result || _result
+	}
+	return result, nil
+}
+
+func validationOperationAND(vo *ValidationOperation, tokenValue any) (bool, error) {
+	nestedValidationOps := vo.Value.([]*ValidationOperation)
+	result := true
+
+	for _, validation := range nestedValidationOps {
+		_result, err := processValidationOperation(validation, tokenValue)
+		if err != nil {
+			return false, err
+		}
+		result = result && _result
+	}
+	return result, nil
+}
+
+func validationOperationNOT(vo *ValidationOperation, tokenValue any) (bool, error) {
+	nestedValidationOps := vo.Value.(*ValidationOperation)
+
+	_result, err := processValidationOperation(nestedValidationOps, tokenValue)
+	if err != nil {
+		return false, err
+	}
+
+	return !_result, nil
+}
+
+func processValidationOperation(vo *ValidationOperation, tokenValue any) (bool, error) {
+	if cvo, found := claimValidationOperations[vo.Operation]; found {
+		result, err := cvo(vo, tokenValue)
+		if err != nil {
+			return false, err
+		}
+		if !result {
+			return false, nil
+		}
+	} else {
+		return false, fmt.Errorf("error: invalid validation method")
+	}
+	return true, nil
 }

@@ -70,6 +70,24 @@ var (
 		{key: "keyNumber01", vo: &ValidationOperation{Operation: "equal", Value: 4}, expected: true},
 		{key: "keyNumber01", vo: &ValidationOperation{Operation: "equal", Value: 10}, expected: false},
 		{key: "dict01.nestedKey01", vo: &ValidationOperation{Operation: "equal", Value: "a"}, expected: false},
+
+		// or/and/not
+		{key: "keyNumber02", vo: &ValidationOperation{Operation: "or", Value: []*ValidationOperation{
+			{Operation: "equal", Value: 10},
+			{Operation: "equal", Value: "10"},
+		}}, expected: true},
+		{key: "keyNumber02", vo: &ValidationOperation{Operation: "and", Value: []*ValidationOperation{
+			{Operation: "equal", Value: 10},
+			{Operation: "equal", Value: "10"},
+		}}, expected: false},
+		{key: "slice01", vo: &ValidationOperation{Operation: "and", Value: []*ValidationOperation{
+			{Operation: "contains", Value: "a"},
+			{Operation: "length", Value: 3},
+		}}, expected: true},
+		{key: "slice01", vo: &ValidationOperation{Operation: "and", Value: []*ValidationOperation{
+			{Operation: "contains", Value: "a"},
+			{Operation: "not", Value: &ValidationOperation{Operation: "length", Value: 10}},
+		}}, expected: true},
 	}
 )
 

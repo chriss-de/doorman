@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,36 +18,46 @@ type bearerMetaData struct {
 }
 
 type ValidationOperation struct {
-	Operation  string `json:"operation"`
-	Value      any    `json:"value"`
-	IsOptional bool   `json:"optional"`
+	Operation string `json:"operation"`
+	Value     any    `json:"value"`
 }
 
 type ClaimValidation struct {
-	Key         string                 `mapstructure:"key"`
-	IsOptional  bool                   `mapstructure:"optional"`
-	Validations []*ValidationOperation `mapstructure:"validations"`
-	DynamicACLS []string               `mapstructure:"dynamic_acls"`
+	Key                 string               `mapstructure:"key"`
+	IsOptional          bool                 `mapstructure:"optional"`
+	ValidationOperation *ValidationOperation `mapstructure:"validation"`
+	DynamicACLS         []string             `mapstructure:"dynamic_acls"`
 }
 
 type TokenKeyAliases map[string]string
 
-type BearerAuthenticator struct {
-	Name              string            `mapstructure:"name"`
-	Type              string            `mapstructure:"type"`
-	ACLs              []string          `mapstructure:"acls"`
-	MetaUrl           string            `mapstructure:"meta_url"`
-	JwksUrl           string            `mapstructure:"jwks_url"`
-	KeysFetchInterval time.Duration     `mapstructure:"keys_fetch_interval"`
+type ClaimsValidationGroup struct {
 	ClaimsValidations []ClaimValidation `mapstructure:"claims_validations"`
 	TokenKeyAliases   TokenKeyAliases   `mapstructure:"token_key_aliases"`
 	TokenMapACLs      []string          `mapstructure:"token_map_acls"`
+}
+
+type BearerAuthenticator struct {
+	Name              string        `mapstructure:"name"`
+	Type              string        `mapstructure:"type"`
+	ACLs              []string      `mapstructure:"acls"`
+	MetaUrl           string        `mapstructure:"meta_url"`
+	JwksUrl           string        `mapstructure:"jwks_url"`
+	KeysFetchInterval time.Duration `mapstructure:"keys_fetch_interval"`
+	// _
+	ClaimsValidationGroups []*ClaimsValidationGroup `mapstructure:"claims_validation_groups"`
+	// _
+	ClaimsValidations []ClaimValidation `mapstructure:"claims_validations"`
+	TokenKeyAliases   TokenKeyAliases   `mapstructure:"token_key_aliases"`
+	TokenMapACLs      []string          `mapstructure:"token_map_acls"`
+	// ____
 	httpClient        *http.Client
 	bearerKeysManager *BearerKeyManager
 }
 
 type BearerAuthenticatorInfo struct {
 	Authenticator *BearerAuthenticator
+	profile       *ClaimsValidationGroup
 	TokenClaims   jwt.MapClaims
 	Token         *jwt.Token
 }
@@ -59,8 +70,9 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 	)
 
 	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.StringToTimeDurationHookFunc(),
-		Result:     &bearerAuthenticator,
+		DecodeHook:  mapstructure.StringToTimeDurationHookFunc(),
+		ErrorUnused: true,
+		Result:      &bearerAuthenticator,
 	})
 	if err != nil {
 		return nil, err
@@ -82,16 +94,26 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 		logger.Info("prefer meta_url over jwks_url")
 	}
 
-	// validation sanity check
-	for _, cv := range bearerAuthenticator.ClaimsValidations {
-		if cv.Key == "" {
-			return nil, fmt.Errorf("claim validation needs a key")
+	if len(bearerAuthenticator.ClaimsValidations) > 0 {
+		p := &ClaimsValidationGroup{
+			ClaimsValidations: bearerAuthenticator.ClaimsValidations,
+			TokenKeyAliases:   bearerAuthenticator.TokenKeyAliases,
+			TokenMapACLs:      bearerAuthenticator.TokenMapACLs,
 		}
-		if len(cv.Validations) == 0 {
-			return nil, fmt.Errorf("need at least one validation check")
-		}
+		slices.Insert(bearerAuthenticator.ClaimsValidationGroups, 0, p)
 	}
 
+	// validation sanity check
+	for idx, profile := range bearerAuthenticator.ClaimsValidationGroups {
+		for _, cv := range profile.ClaimsValidations {
+			if cv.Key == "" {
+				return nil, fmt.Errorf("claim validation needs a key in group %d", idx)
+			}
+			if cv.ValidationOperation == nil || cv.ValidationOperation.Operation == "" {
+				return nil, fmt.Errorf("claim validation needs a validation operation in group %d", idx)
+			}
+		}
+	}
 	if bearerAuthenticator.MetaUrl != "" {
 		if err = bearerAuthenticator.fetchMetaData(); err != nil {
 			return nil, err
@@ -128,28 +150,33 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 		// we check if the token is valid later
 		token, _ = jwt.ParseWithClaims(bearerValue, &tokenClaims, a.bearerKeysManager.getSignatureKey)
 		if token == nil {
-			return nil, fmt.Errorf("no token")
+			logger.Info("no token found in bearer header")
+			return nil, nil
 		}
 		if !token.Valid {
-			return nil, fmt.Errorf("invalid bearer token")
-		}
-		if err = a.validateClaims(tokenClaims); err != nil {
-			return nil, err
-		}
-		if err = a.tokenMapACLs(tokenClaims); err != nil {
-			return nil, err
+			logger.Info("invalid token in bearer header")
+			return nil, nil
 		}
 
-		bpi := &BearerAuthenticatorInfo{Authenticator: a, TokenClaims: tokenClaims, Token: token}
-		return bpi, nil
+		for idx, profile := range a.ClaimsValidationGroups {
+			if err = a.validateClaimsForProfile(profile, idx, tokenClaims); err != nil {
+				logger.Info("group validation failed", "idx", idx, "err", err)
+				continue
+			}
+			if err = a.tokenMapACLs(profile, tokenClaims); err != nil {
+				return nil, err
+			}
 
+			bpi := &BearerAuthenticatorInfo{Authenticator: a, profile: profile, TokenClaims: tokenClaims, Token: token}
+			return bpi, nil
+		}
 	}
 	return nil, nil
 }
 
-func (a *BearerAuthenticator) tokenMapACLs(tokenClaims jwt.MapClaims) error {
-	for _, key := range a.TokenMapACLs {
-		tokenVal := getFromTokenPayload(a.mapKey(key), tokenClaims)
+func (a *BearerAuthenticator) tokenMapACLs(profile *ClaimsValidationGroup, tokenClaims jwt.MapClaims) error {
+	for _, key := range profile.TokenMapACLs {
+		tokenVal := getFromTokenPayload(profile.mapKey(key), tokenClaims)
 		switch anyVal := tokenVal.(type) {
 		case []any:
 			for _, arrVal := range anyVal {
@@ -182,25 +209,24 @@ func (a *BearerAuthenticator) tokenMapACL(aVal any) error {
 	return nil
 }
 
-func (a *BearerAuthenticator) validateClaims(tokenClaims jwt.MapClaims) error {
-	for _, cv := range a.ClaimsValidations {
-		v := getFromTokenPayload(cv.Key, tokenClaims)
-		if v != nil {
-			for _, validation := range cv.Validations {
-				if cvo, found := claimValidationOperations[validation.Operation]; found {
-					result, err := cvo(validation, v)
-					if err != nil {
-						return err
-					}
-					if !result && !validation.IsOptional {
-						return fmt.Errorf("error: %s failed for %v with %s", validation.Operation, v, validation.Value)
-					}
-				} else {
-					return fmt.Errorf("invalid validation for key '%s'", cv.Key)
+func (a *BearerAuthenticator) validateClaimsForProfile(profile *ClaimsValidationGroup, idx int, tokenClaims jwt.MapClaims) error {
+	for _, cv := range profile.ClaimsValidations {
+		tokenValue := getFromTokenPayload(cv.Key, tokenClaims)
+		if tokenValue != nil {
+			result, err := processValidationOperation(cv.ValidationOperation, tokenClaims)
+			if err != nil {
+				return fmt.Errorf("validation failed for group %d and key %s: %w", idx, cv.Key, err)
+			}
+			if !result {
+				if cv.IsOptional {
+					continue
 				}
+				logger.Debug("validation returned false for group %d and key %s", idx, cv.Key)
+
 			}
 			if len(cv.DynamicACLS) > 0 {
 				a.ACLs = append(a.ACLs, cv.DynamicACLS...)
+				return nil
 			}
 		} else if !cv.IsOptional {
 			return errorMessage(cv.Key, "not found")
@@ -217,7 +243,7 @@ func (a *BearerAuthenticator) fetchMetaData() (err error) {
 		metaData bearerMetaData
 	)
 
-	if request, err = http.NewRequest("GET", a.MetaUrl, nil); err != nil {
+	if request, err = http.NewRequest(http.MethodGet, a.MetaUrl, nil); err != nil {
 		return err
 	}
 	if response, err = a.httpClient.Do(request); err != nil {
@@ -240,7 +266,7 @@ func (a *BearerAuthenticator) fetchMetaData() (err error) {
 	return nil
 }
 
-func (a *BearerAuthenticator) mapKey(key string) string {
+func (a *ClaimsValidationGroup) mapKey(key string) string {
 	keyResult := key
 
 	if len(a.TokenKeyAliases) > 0 {
@@ -253,7 +279,7 @@ func (a *BearerAuthenticator) mapKey(key string) string {
 }
 
 func (i *BearerAuthenticatorInfo) mapKey(key string) string {
-	return i.Authenticator.mapKey(key)
+	return i.profile.mapKey(key)
 }
 
 func (i *BearerAuthenticatorInfo) GetStringFromToken(key string) string {

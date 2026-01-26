@@ -31,11 +31,22 @@ type BasicAuthAuthenticator struct {
 }
 
 func NewBasicAuthAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticator, err error) {
-	var basicAuthAuthenticator *BasicAuthAuthenticator
+	var (
+		decoder                *mapstructure.Decoder
+		basicAuthAuthenticator *BasicAuthAuthenticator
+	)
 
-	if err = mapstructure.Decode(cfg.Config, &basicAuthAuthenticator); err != nil {
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		ErrorUnused: true,
+		Result:      &basicAuthAuthenticator,
+	})
+	if err != nil {
 		return nil, err
 	}
+	if err = decoder.Decode(cfg.Config); err != nil {
+		return nil, err
+	}
+
 	basicAuthAuthenticator.Name = cfg.Name
 	basicAuthAuthenticator.Type = "basic"
 	basicAuthAuthenticator.ACLs = cfg.ACLs

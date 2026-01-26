@@ -1,4 +1,4 @@
-module github.com/chriss-de/doorman/v2
+module github.com/chriss-de/doorman/v3
 
 go 1.24
 

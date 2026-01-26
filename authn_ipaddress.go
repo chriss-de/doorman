@@ -25,11 +25,22 @@ type IPAddressAuthenticatorInfo struct {
 
 // NewIPAddressAuthenticator initialize
 func NewIPAddressAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticator, err error) {
-	var ipAddressAuthenticator *IPAddressAuthenticator
+	var (
+		decoder                *mapstructure.Decoder
+		ipAddressAuthenticator *IPAddressAuthenticator
+	)
 
-	if err = mapstructure.Decode(cfg.Config, &ipAddressAuthenticator); err != nil {
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		ErrorUnused: true,
+		Result:      &ipAddressAuthenticator,
+	})
+	if err != nil {
 		return nil, err
 	}
+	if err = decoder.Decode(cfg.Config); err != nil {
+		return nil, err
+	}
+
 	ipAddressAuthenticator.Name = cfg.Name
 	ipAddressAuthenticator.Type = "ipaddress"
 	ipAddressAuthenticator.ACLs = cfg.ACLs
