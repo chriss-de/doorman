@@ -100,10 +100,13 @@ func NewBearerAuthenticator(cfg *AuthenticatorConfig) (authenticator Authenticat
 			TokenKeyAliases:   bearerAuthenticator.TokenKeyAliases,
 			TokenMapACLs:      bearerAuthenticator.TokenMapACLs,
 		}
-		slices.Insert(bearerAuthenticator.ClaimsValidationGroups, 0, p)
+		bearerAuthenticator.ClaimsValidationGroups = slices.Insert(bearerAuthenticator.ClaimsValidationGroups, 0, p)
 	}
 
 	// validation sanity check
+	if len(bearerAuthenticator.ClaimsValidationGroups) == 0 {
+		return nil, fmt.Errorf("needs claims_validations")
+	}
 	for idx, profile := range bearerAuthenticator.ClaimsValidationGroups {
 		for _, cv := range profile.ClaimsValidations {
 			if cv.Key == "" {
