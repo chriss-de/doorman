@@ -234,8 +234,8 @@ func (a *BearerAuthenticator) validateClaimsForGroup(group *ClaimsValidationGrou
 
 			if len(cv.DynamicACLS) > 0 {
 				a.ACLs = append(a.ACLs, cv.DynamicACLS...)
-				return true, nil
 			}
+			return true, nil
 		} else if !cv.IsOptional {
 			return false, fmt.Errorf("invalid claim. key '%s' not found", cv.Key)
 		}
