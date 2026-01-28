@@ -57,7 +57,8 @@ type BearerAuthenticator struct {
 
 type BearerAuthenticatorInfo struct {
 	Authenticator *BearerAuthenticator
-	profile       *ClaimsValidationGroup
+	cvGroup       *ClaimsValidationGroup
+	cvGroupIdx    int
 	TokenClaims   jwt.MapClaims
 	Token         *jwt.Token
 }
@@ -160,8 +161,8 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 			return nil, nil
 		}
 
-		for idx, profile := range a.ClaimsValidationGroups {
-			vr, err := a.validateClaimsForGroup(profile, idx, tokenClaims)
+		for idx, group := range a.ClaimsValidationGroups {
+			vr, err := a.validateClaimsForGroup(group, idx, tokenClaims)
 			if err != nil {
 				logger.Info("group validation failed with error", "idx", idx, "err", err)
 				continue
@@ -170,11 +171,11 @@ func (a *BearerAuthenticator) Evaluate(r *http.Request) (AuthenticatorInfo, erro
 				logger.Debug("group validation returned false", "idx", idx)
 				continue
 			}
-			if err = a.tokenMapACLs(profile, tokenClaims); err != nil {
+			if err = a.tokenMapACLs(group, tokenClaims); err != nil {
 				return nil, err
 			}
 
-			bpi := &BearerAuthenticatorInfo{Authenticator: a, profile: profile, TokenClaims: tokenClaims, Token: token}
+			bpi := &BearerAuthenticatorInfo{Authenticator: a, cvGroup: group, cvGroupIdx: idx, TokenClaims: tokenClaims, Token: token}
 			return bpi, nil
 		}
 	}
@@ -287,7 +288,7 @@ func (a *ClaimsValidationGroup) mapKey(key string) string {
 }
 
 func (i *BearerAuthenticatorInfo) mapKey(key string) string {
-	return i.profile.mapKey(key)
+	return i.cvGroup.mapKey(key)
 }
 
 func (i *BearerAuthenticatorInfo) GetStringFromToken(key string) string {
